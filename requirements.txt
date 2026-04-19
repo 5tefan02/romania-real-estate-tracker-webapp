@@ -1,0 +1,22 @@
+# Shared
+sqlalchemy>=2.0
+psycopg2-binary
+python-dotenv
+
+# Backend (FastAPI)
+fastapi
+uvicorn[standard]
+python-jose[cryptography]
+passlib[bcrypt]
+pydantic
+
+# ETL (Scraping)
+beautifulsoup4
+lxml
+selenium
+webdriver-manager
+requests
+
+# ETL (Analysis)
+numpy
+pandas

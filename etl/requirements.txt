@@ -1,0 +1,12 @@
+# ETL pipeline dependencies
+# Install with:  pip install -r etl/requirements.txt
+
+# Database
+sqlalchemy>=2.0
+psycopg2-binary
+
+# Scraping
+selenium
+webdriver-manager
+beautifulsoup4
+lxml

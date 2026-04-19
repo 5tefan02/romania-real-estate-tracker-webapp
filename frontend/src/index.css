@@ -1,0 +1,5 @@
+/* These three @tailwind directives are replaced at build time with
+   the actual Tailwind CSS (base styles, component classes, utilities). */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
