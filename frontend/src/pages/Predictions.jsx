@@ -247,26 +247,14 @@ export default function Predictions() {
                   </tr>
                 </tbody>
               </table>
-              <p className="mt-2 text-xs text-gray-500">
-                MAE = cu cat se inseala modelul in medie.
-                R² = cat de bine prinde datele (cat mai aproape de 1).
-              </p>
             </div>
           )}
         </div>
 
-        {/* formularul de predictie */}
         <div className="mt-6 rounded-lg bg-white p-4 shadow-sm">
           <h2 className="mb-3 text-sm font-semibold text-gray-800">
             Afla cat poate sa coste un imobil
           </h2>
-
-          {!modelsTrained && modelsLoaded && (
-            <div className="mb-3 rounded bg-yellow-50 p-2 text-sm text-yellow-800">
-              Nu poti estima pretul inca. Intai trebuie antrenate modelele.
-            </div>
-          )}
-
           <form onSubmit={handlePredict}>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
@@ -367,18 +355,6 @@ export default function Predictions() {
                   <option value="vanzare">Vanzare</option>
                   {canRentCurrentType && <option value="inchiriere">Inchiriere</option>}
                 </select>
-                {/* sa se vada ce model foloseste */}
-                {modelInfo && selectedModelMetrics && (
-                  <p className="mt-1 text-xs text-gray-500">
-                    Folosesc modelul de{" "}
-                    <b>
-                      {form.property_type === "Casa" ? "Case" : "Apartamente"}
-                      {" — "}
-                      {form.transaction_type === "inchiriere" ? "Inchiriere" : "Vanzare"}
-                    </b>{" "}
-                    (antrenat pe {selectedModelMetrics.training_rows} anunturi, R² = {selectedModelMetrics.r2}).
-                  </p>
-                )}
               </div>
 
               <div>
@@ -448,14 +424,8 @@ export default function Predictions() {
                       <span className="text-base font-normal text-gray-500"> / luna</span>
                     )}
                   </div>
-                  <div className="mt-1 text-xs text-gray-500">100 arbori pusi impreuna</div>
                 </div>
               </div>
-
-              <p className="mt-3 text-xs text-gray-500">
-                Random Forest pune mai multi arbori de decizie sa ghiceasca pretul,
-                si la final face media lor. E mai stabil si nu cade usor la extreme.
-              </p>
             </>
           )}
         </div>

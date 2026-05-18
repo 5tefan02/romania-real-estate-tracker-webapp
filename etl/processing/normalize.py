@@ -85,6 +85,7 @@ def normalize_db():
                 etaj,
                 an_constructie,
                 compartimentare,
+                camere,
                 pret,
                 data_publicare,
                 id_sursa_raw
@@ -102,6 +103,12 @@ def normalize_db():
                 END,
                 raw.an_constructie,
                 raw.compartimentare,
+                -- camere e text in raw_data, deci pun integer doar daca e
+                -- un sir de cifre, altfel pun NULL (e mai sigur decat CAST direct)
+                CASE
+                    WHEN raw.camere ~ '^[0-9]+$' THEN CAST(raw.camere AS INTEGER)
+                    ELSE NULL
+                END,
                 raw.pret,
                 raw.data,
                 raw.id_raw

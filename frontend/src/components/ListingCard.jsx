@@ -1,6 +1,9 @@
 // un card dintr-un grid de anunturi
+// pentru admin afisez si butoanele de edit / sterge pe card
 
 import { useState } from "react";
+import { useAuth } from "../AuthContext.jsx";
+import EditListingModal from "./EditListingModal.jsx";
 
 // 95000 -> "95.000"
 function formatPrice(value) {
@@ -8,27 +11,38 @@ function formatPrice(value) {
   return new Intl.NumberFormat("ro-RO").format(value);
 }
 
-function StatusBadge({ status }) {
-  const colors = {
-    activ: "bg-green-100 text-green-800",
-    inactiv: "bg-gray-200 text-gray-700",
-    modificat: "bg-yellow-100 text-yellow-800",
-  };
-  const className = colors[status] || "bg-gray-100 text-gray-700";
-  return (
-    <span className={`rounded px-2 py-0.5 text-xs font-medium ${className}`}>
-      {status || "—"}
-    </span>
-  );
-}
+export default function ListingCard({ listing, onToggleFavorite, onUpdate, onDelete }) {
+  const { user } = useAuth();
 
-export default function ListingCard({ listing }) {
+  // verific daca utilizatorul curent e admin
+  // (folosesc isAdmin in mai multe locuri mai jos pentru afisare conditionata)
+  let isAdmin = false;
+  if (user && user.role === "admin") {
+    isAdmin = true;
+  }
+
   const [imageIndex, setImageIndex] = useState(0);
+
+  // state pentru modalul de edit
+  const [showEdit, setShowEdit] = useState(false);
+
+  // state pentru modalul de confirmare la stergere
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const images = listing.imagini || [];
   const hasImages = images.length > 0;
   const hasMultiple = images.length > 1;
   const currentImage = hasImages ? images[imageIndex] : null;
+
+  function handleFavoriteClick(event) {
+    event.stopPropagation();
+    event.preventDefault();
+    if (onToggleFavorite) {
+      onToggleFavorite(listing.id, !listing.is_favorite);
+    }
+  }
 
   // % ca sa sara din nou la inceput dupa ce ajunge la capat
   function showPrev(event) {
@@ -41,6 +55,30 @@ export default function ListingCard({ listing }) {
     event.stopPropagation();
     event.preventDefault();
     setImageIndex((i) => (i + 1) % images.length);
+  }
+
+  // se apeleaza dupa ce admin-ul a salvat modificarile in modal
+  // (modalul a facut deja API-call, eu doar propag schimbarile catre pagina parinte)
+  function handleSavedFromModal(updates) {
+    if (onUpdate) {
+      onUpdate(listing.id, updates);
+    }
+  }
+
+  // se apeleaza cand admin-ul confirma stergerea
+  async function handleConfirmDelete() {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      if (onDelete) {
+        await onDelete(listing.id);
+      }
+      // dupa stergere reusita parintele scoate cardul din lista, deci
+      // nu mai trebuie sa inchid eu modalul - cardul oricum dispare
+    } catch (err) {
+      setDeleteError(err.message || "Eroare la stergere");
+      setDeleting(false);
+    }
   }
 
   const arrowClass =
@@ -94,14 +132,23 @@ export default function ListingCard({ listing }) {
             </div>
           </>
         )}
+
+        {/* butonul de favorite - inima plina daca e la favorite, contur daca nu */}
+        <button
+          type="button"
+          onClick={handleFavoriteClick}
+          aria-label={listing.is_favorite ? "Scoate din favorite" : "Adauga la favorite"}
+          className="absolute top-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-xl shadow hover:bg-white"
+        >
+          <span className={listing.is_favorite ? "text-red-500" : "text-gray-400"}>
+            {listing.is_favorite ? "♥" : "♡"}
+          </span>
+        </button>
       </div>
 
       <div className="flex flex-1 flex-col p-4">
-        <div className="mb-2 flex items-center justify-between">
-          <div className="text-lg font-semibold text-gray-900">
-            {formatPrice(listing.pret)} EUR
-          </div>
-          <StatusBadge status={listing.status} />
+        <div className="mb-2 text-lg font-semibold text-gray-900">
+          {formatPrice(listing.pret)} EUR
         </div>
 
         <div className="mb-1 text-sm text-gray-700">
@@ -140,6 +187,26 @@ export default function ListingCard({ listing }) {
         {/* un spacer ca sa impinga footer-ul jos */}
         <div className="flex-1" />
 
+        {/* butoanele de admin - apar doar daca user-ul logat e admin */}
+        {isAdmin && (
+          <div className="mb-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowEdit(true)}
+              className="rounded bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+            >
+              Editeaza
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowConfirmDelete(true)}
+              className="rounded bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+            >
+              Sterge
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center justify-between border-t pt-2 text-xs text-gray-500">
           <span>
             {listing.platforma || "—"}
@@ -157,6 +224,54 @@ export default function ListingCard({ listing }) {
           )}
         </div>
       </div>
+
+      {/* modalul de editare - apare doar daca admin-ul a apasat "Editeaza" */}
+      {showEdit && (
+        <EditListingModal
+          listing={listing}
+          onClose={() => setShowEdit(false)}
+          onSave={handleSavedFromModal}
+        />
+      )}
+
+      {/* modalul de confirmare la stergere */}
+      {showConfirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="mb-2 text-lg font-semibold text-gray-800">
+              Confirmare stergere
+            </h3>
+            <p className="mb-4 text-sm text-gray-600">
+              Sigur stergi anuntul de la {listing.localitate || "?"} -{" "}
+              {formatPrice(listing.pret)} EUR? Aceasta actiune nu se poate
+              undo.
+            </p>
+
+            {deleteError && (
+              <div className="mb-3 rounded bg-red-50 p-2 text-xs text-red-700">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowConfirmDelete(false)}
+                disabled={deleting}
+                className="rounded bg-gray-100 px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+              >
+                Anuleaza
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={deleting}
+                className="rounded bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:bg-gray-400"
+              >
+                {deleting ? "Se sterge..." : "Sterge definitiv"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

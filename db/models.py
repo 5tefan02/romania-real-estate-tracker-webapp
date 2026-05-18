@@ -1,6 +1,6 @@
 # tabelele din baza de date (SQLAlchemy)
 
-from sqlalchemy import BigInteger, Boolean, Column, Date, Integer, String, ForeignKey
+from sqlalchemy import BigInteger, Boolean, Column, Date, DateTime, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 
 from db.connection import Base
@@ -11,11 +11,21 @@ class AppUser(Base):
     __tablename__ = "app_users"
 
     id = Column(Integer, primary_key=True)
-    username = Column(String, nullable=False, unique=True)
-    email = Column(String, nullable=False)
-    password_hash = Column(String, nullable=False)
-    role = Column(String, nullable=False)
-    created_at = Column(String)
+    username = Column(String(100), nullable=False, unique=True)
+    email = Column(String(255), nullable=False, unique=True)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(20), nullable=False)
+    created_at = Column(DateTime(timezone=True))
+
+
+class Favorite(Base):
+    # anunturile salvate la "preferate" de un user
+    # PK compus (id_user, id_anunt) ca sa nu poata adauga acelasi anunt de doua ori
+    __tablename__ = "favorite"
+
+    id_user = Column(Integer, ForeignKey("app_users.id", ondelete="CASCADE"), primary_key=True)
+    id_anunt = Column(Integer, ForeignKey("anunturi.id_anunt", ondelete="CASCADE"), primary_key=True)
+    created_at = Column(DateTime(timezone=True))
 
 
 class Estate(Base):
@@ -113,6 +123,7 @@ class Anunt(Base):
     etaj = Column(String(255))
     an_constructie = Column(String(255))
     compartimentare = Column(String(255))
+    camere = Column(Integer, nullable=True)
     pret = Column(BigInteger, nullable=False)
     data_publicare = Column(Date)
 
@@ -150,3 +161,37 @@ class ImagineAnunt(Base):
     ordine = Column(Integer, nullable=True)
 
     anunt = relationship("Anunt", back_populates="imagini")
+
+
+class CriteriiCautare(Base):
+    # filtrele setate de user pentru notificari pe mail
+    # un user are un singur profil (de aia UNIQUE pe id_user)
+    # un filtru pus pe null inseamna "orice" pe campul ala
+    # activ = false -> userul a oprit notificarile, nu mai primeste mailuri
+    __tablename__ = "criterii_cautare"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    id_user = Column(Integer, ForeignKey("app_users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    id_judet = Column(Integer, ForeignKey("judete.id_judet"), nullable=True)
+    id_localitate = Column(Integer, ForeignKey("localitati.id_localitate"), nullable=True)
+    id_tip_imobiliar = Column(Integer, ForeignKey("tipuri_imobil.id_tip_imobiliar"), nullable=True)
+    id_tip_tranzactie = Column(Integer, ForeignKey("tipuri_tranzactie.id_tip_tranzactie"), nullable=True)
+    id_compartimentare = Column(Integer, ForeignKey("compartimentare.id_compartimentare"), nullable=True)
+    pret_min = Column(Integer, nullable=True)
+    pret_max = Column(Integer, nullable=True)
+    suprafata_min = Column(Integer, nullable=True)
+    suprafata_max = Column(Integer, nullable=True)
+    camere = Column(Integer, nullable=True)
+    activ = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True))
+
+
+class NotificareTrimisa(Base):
+    # evidenta anunturilor trimise pe mail catre fiecare user
+    # asa userul nu primeste de doua ori acelasi anunt
+    # PK compus pe (id_user, id_anunt) -> nu se accepta duplicate
+    __tablename__ = "notificari_trimise"
+
+    id_user = Column(Integer, ForeignKey("app_users.id", ondelete="CASCADE"), primary_key=True)
+    id_anunt = Column(Integer, ForeignKey("anunturi.id_anunt", ondelete="CASCADE"), primary_key=True)
+    data_trimitere = Column(DateTime(timezone=True))

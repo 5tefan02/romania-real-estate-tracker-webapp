@@ -34,6 +34,7 @@ def verificare_status(driver, url, platforma):
         elif platforma == "imobiliare.ro":
             time.sleep(2)
 
+            # caz 1: anuntul a fost scos de tot - URL-ul redirecteaza catre alta pagina
             if driver.current_url != url:
                 print(f"[Inactiv - imobiliare.ro] Redirect: {url}")
                 return None
@@ -46,6 +47,15 @@ def verificare_status(driver, url, platforma):
                 pass
 
             soup = BeautifulSoup(driver.page_source, 'lxml')
+
+            # caz 2: anuntul e inchis (nu mai primeste cereri) - URL-ul ramane acelasi
+            # dar pe pagina apare un banner role="alert" cu textul:
+            # "In acest moment, nu se primesc cereri pentru aceasta proprietate..."
+            alert = soup.find('div', {'role': 'alert'})
+            if alert and "nu se primesc cereri" in alert.get_text().lower():
+                print(f"[Inactiv - imobiliare.ro] Banner 'nu se primesc cereri': {url}")
+                return None
+
             pret_element = soup.find(attrs={'aria-label': 'price'})
 
         # storia

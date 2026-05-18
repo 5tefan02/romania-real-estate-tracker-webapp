@@ -28,6 +28,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
+def hash_password(plain_password: str) -> str:
+    # folosit la inregistrare ca sa nu salvez parola in clar
+    return pwd_context.hash(plain_password)
+
+
 def create_access_token(user_id: int) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINUTES)
     payload = {
@@ -39,9 +44,7 @@ def create_access_token(user_id: int) -> str:
 
 def get_current_user(
     request: Request,
-    db: Session = Depends(get_db),
-) -> AppUser:
-    # iau token-ul din cookie, il decodez si caut userul
+    db: Session = Depends(get_db)) -> AppUser:
 
     token = request.cookies.get(COOKIE_NAME)
     if not token:
@@ -70,3 +73,15 @@ def get_current_user(
         )
 
     return user
+
+
+def require_admin(current_user: AppUser = Depends(get_current_user)) -> AppUser:
+    # dependency pt rutele care cer rol admin
+    # se foloseste asa: current_user: AppUser = Depends(require_admin)
+    # daca userul nu e admin -> 403 si requestul nu mai ajunge la handler
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user

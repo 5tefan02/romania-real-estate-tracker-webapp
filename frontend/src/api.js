@@ -40,6 +40,13 @@ export function login(username, password) {
   });
 }
 
+export function register(username, email, password) {
+  return request("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ username, email, password }),
+  });
+}
+
 export function logout() {
   return request("/api/auth/logout", { method: "POST" });
 }
@@ -64,6 +71,43 @@ export function fetchListings(params = {}) {
   }
   const qs = query.toString();
   return request(`/api/listings${qs ? `?${qs}` : ""}`, { method: "GET" });
+}
+
+// favorites
+
+export function fetchFavorites(params = {}) {
+  // aceeasi structura ca fetchListings ca sa pot refolosi ListingCard
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== "" && value !== null && value !== undefined) {
+      query.append(key, value);
+    }
+  }
+  const qs = query.toString();
+  return request(`/api/favorites${qs ? `?${qs}` : ""}`, { method: "GET" });
+}
+
+export function addFavorite(idAnunt) {
+  return request(`/api/favorites/${idAnunt}`, { method: "POST" });
+}
+
+export function removeFavorite(idAnunt) {
+  return request(`/api/favorites/${idAnunt}`, { method: "DELETE" });
+}
+
+// criterii notificari pe mail
+
+export function fetchCriterii() {
+  // aduce filtrele userului curent (sau null daca nu a salvat inca nimic)
+  return request("/api/me/criterii", { method: "GET" });
+}
+
+export function saveCriterii(criterii) {
+  // salveaza sau updateaza profilul de notificari (upsert pe backend)
+  return request("/api/me/criterii", {
+    method: "PUT",
+    body: JSON.stringify(criterii),
+  });
 }
 
 // stats
@@ -125,4 +169,33 @@ export function predictPrice(input) {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+// admin
+
+export function fetchAdminUsers() {
+  return request("/api/admin/users", { method: "GET" });
+}
+
+export function deleteAdminUser(userId) {
+  return request(`/api/admin/users/${userId}`, { method: "DELETE" });
+}
+
+export function updateAdminListing(idAnunt, payload) {
+  return request(`/api/admin/listings/${idAnunt}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteAdminListing(idAnunt) {
+  return request(`/api/admin/listings/${idAnunt}`, { method: "DELETE" });
+}
+
+export function triggerEtl() {
+  return request("/api/admin/etl/run", { method: "POST" });
+}
+
+export function fetchAdminStats() {
+  return request("/api/admin/stats", { method: "GET" });
 }

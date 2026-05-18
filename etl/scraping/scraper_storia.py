@@ -103,14 +103,12 @@ def scrape_storia(url_start, tip_tranzactie, tip_imobiliar):
                     if match:
                         camere = int(match.group())
 
-            # compartimentarea o iau din descriere
-            container_descriere = soup.find('div', {'data-cy': 'ad_description'})
-            if not container_descriere:
-                container_descriere = soup.find('div', class_='css-fl29zg')
-
-            if container_descriere:
-                text_descriere = container_descriere.get_text(separator=" ", strip=True)
-                compartimentare = clean_compartimentare(text_descriere)
+            # compartimentarea nu apare intr-o sectiune separata pe storia,
+            # deci se cauta cuvantul in tot textul paginii
+            # (decomandat / semidecomandat / etc - sunt cuvinte destul de
+            # specifice cat sa nu apara intamplator in alt context)
+            text_pagina = soup.get_text(separator=" ", strip=True)
+            compartimentare = clean_compartimentare(text_pagina)
 
             # imaginile
             imagini_url = []

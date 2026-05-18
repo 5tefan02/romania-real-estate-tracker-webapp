@@ -27,11 +27,11 @@ def load_training_data(db: Session) -> pd.DataFrame:
             Anunt.suprafata.label("suprafata"),
             Anunt.etaj.label("etaj"),
             Anunt.an_constructie.label("an_constructie"),
+            Anunt.camere.label("camere"),
             Judet.nume_judet.label("county"),
             Localitate.nume_localitate.label("locality"),
             TipImobil.nume_tip.label("property_type"),
             TipTranzactie.nume_tranzactie.label("transaction_type"),
-            Estate.camere.label("camere"),
         )
         .join(Localitate, Localitate.id_localitate == Anunt.id_localitate)
         .join(Judet, Judet.id_judet == Localitate.id_judet)

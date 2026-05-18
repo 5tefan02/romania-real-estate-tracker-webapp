@@ -104,20 +104,6 @@ export default function FiltersBar({ options, filters, onChange, onApply, onRese
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Status</label>
-          <select
-            className={inputClass}
-            value={filters.status_anunt}
-            onChange={(e) => onChange("status_anunt", e.target.value)}
-          >
-            <option value="">Toate</option>
-            <option value="activ">Activ</option>
-            <option value="inactiv">Inactiv</option>
-            <option value="modificat">Modificat</option>
-          </select>
-        </div>
-
-        <div>
           <label className="mb-1 block text-xs font-medium text-gray-600">Pret (EUR)</label>
           <div className="flex gap-2">
             <input
@@ -159,6 +145,19 @@ export default function FiltersBar({ options, filters, onChange, onApply, onRese
               onChange={(e) => onChange("suprafata_max", e.target.value)}
             />
           </div>
+        </div>
+
+        {/* numarul de camere - match exact. gol = orice numar */}
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">Camere</label>
+          <input
+            type="number"
+            min="1"
+            placeholder="orice"
+            className={inputClass}
+            value={filters.camere}
+            onChange={(e) => onChange("camere", e.target.value)}
+          />
         </div>
       </div>
 

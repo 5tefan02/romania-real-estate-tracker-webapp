@@ -24,13 +24,19 @@ export function AuthProvider({ children }) {
     setUser(data.user);
   }
 
+  async function register(username, email, password) {
+    // backend-ul ne logheaza automat dupa register, deci primesc user direct
+    const data = await api.register(username, email, password);
+    setUser(data.user);
+  }
+
   async function logout() {
     await api.logout();
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

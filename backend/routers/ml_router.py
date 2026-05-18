@@ -5,10 +5,10 @@ import os
 from datetime import datetime
 
 import joblib
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from backend.auth import get_current_user
+from backend.auth import get_current_user, require_admin
 from backend.ml.predict import predict_price
 from backend.ml.train import (
     COLS_APARTAMENT_INCHIRIERE_PATH,
@@ -44,21 +44,12 @@ _ALL_MODEL_FILES = [
 ]
 
 
-def _require_admin(user: AppUser):
-    if user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required",
-        )
-
-
 @router.post("/retrain", response_model=TrainResponse)
 def retrain(
     db: Session = Depends(get_db),
-    current_user: AppUser = Depends(get_current_user),
+    current_user: AppUser = Depends(require_admin),
 ):
     # antrenez din nou cele 3 modele (doar admin)
-    _require_admin(current_user)
     summary = train_models(db)
     return {"message": "Models trained successfully", **summary}
 

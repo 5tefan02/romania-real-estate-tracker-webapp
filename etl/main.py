@@ -1,5 +1,6 @@
 from etl.processing.update_status import verifica_si_actualizeaza_preturi
 from etl.processing.normalize import normalize_db
+from etl.processing.notify_users import notify_users
 from etl.scraping.scraper_olx import scrape_olx
 from etl.scraping.scraper_imobiliare import scrape_imobiliarero
 from etl.scraping.scraper_storia import scrape_storia
@@ -51,6 +52,7 @@ def main():
 
     normalize_db()
     verifica_si_actualizeaza_preturi()
+    notify_users()
 
 
 if __name__ == "__main__":

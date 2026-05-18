@@ -49,13 +49,45 @@ def clean_location(oras_raw, judet_raw):
 def clean_price(price_text):
     if not price_text:
         return None
-    # iau doar primul numar (sa nu concatenez totul)
-    # "95.000 € - 3.500 €/mp" -> 95000, nu 955003500
+    # preturile in RON/Lei sunt sarite - se pastreaza doar cele in EUR
+    # (ca sa nu fie amestecate valute in baza de date si sa iasa statistici aiurea)
+    text_lower = price_text.lower()
+    if "ron" in text_lower or "lei" in text_lower:
+        return None
+    # din textul cu pretul se ia doar primul numar
+    # ex: "95.000 € - 3.500 €/mp" -> 95000, nu 955003500
     match = re.search(r'\d[\d\s.,]*', price_text)
     if not match:
         return None
     digits = ''.join(c for c in match.group() if c.isdigit())
     return int(digits) if digits else None
+
+
+def fix_price(pret, tip_imobiliar, tip_tranzactie, suprafata):
+    # elimina preturile prea mari sau prea mici (probabil greseli)
+    # exceptie la terenuri: daca pretul e pe metru patrat, e inmultit cu suprafata
+    if pret is None:
+        return None
+
+    # la terenuri, daca pretul e foarte mic, probabil e pretul pe mp si nu total
+    # in cazul asta se inmulteste cu suprafata ca sa rezulte pretul total
+    # daca nu exista suprafata, anuntul nu poate fi salvat
+    if tip_imobiliar == "Teren" and pret < 500:
+        if suprafata:
+            pret = pret * suprafata
+        else:
+            return None
+
+    # limite diferite pentru vanzare vs inchiriere
+    # ce e in afara intervalului e considerat greseala si se returneaza None
+    if tip_tranzactie == "vanzare":
+        if pret < 5000 or pret > 10_000_000:
+            return None
+    elif tip_tranzactie == "inchiriere":
+        if pret < 50 or pret > 100_000:
+            return None
+
+    return pret
 
 
 def normalize_tip_imobil(tip_imobiliar):
@@ -167,7 +199,9 @@ def build_id_raw(oras, judet, tip_imobiliar, suprafata, etaj, camere,
 
     parts = [oras, judet, tip_clean, suprafata, etaj, camere,
              perioada_constructie, tip_tranzactie]
-    return "".join(str(x) for x in parts if x is not None)
+    # lower() la final ca sa nu am duplicate cand un site trimite "Cluj"
+    # si altul "cluj" - iese acelasi id_raw
+    return "".join(str(x) for x in parts if x is not None).lower()
 
 
 def validate_listing(anunt):
@@ -209,6 +243,15 @@ def clean_listing(raw):
 
     if anunt.get('compartimentare'):
         anunt['compartimentare'] = clean_compartimentare(anunt['compartimentare'])
+
+    # apel la final, cand tipul si suprafata sunt deja curatate
+    # (fix_price are nevoie de ele ca sa decida limitele corecte)
+    anunt['pret'] = fix_price(
+        anunt.get('pret'),
+        anunt.get('tip_imobiliar'),
+        anunt.get('tip_tranzactie'),
+        anunt.get('suprafata'),
+    )
 
     # refac id_raw cu valorile curatate sa iasa la fel intre site-uri
     anunt['id_raw'] = build_id_raw(
