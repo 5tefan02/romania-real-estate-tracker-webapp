@@ -29,13 +29,13 @@ export default function Navbar() {
       {/* mijloc: navigare principala */}
       <nav className="flex items-center gap-6 text-sm">
         <NavLink to="/listings" className={linkClass}>
-          Listings
+          Anunturi
         </NavLink>
         <NavLink to="/statistics" className={linkClass}>
-          Statistics
+          Statistici
         </NavLink>
         <NavLink to="/predictions" className={linkClass}>
-          Predictions
+          Predictii
         </NavLink>
         {/* link-ul de admin apare doar pentru conturile cu rol admin */}
         {user?.role === "admin" && (

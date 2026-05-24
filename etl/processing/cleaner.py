@@ -64,11 +64,6 @@ def clean_price(price_text):
 
 
 def fix_price(pret, tip_imobiliar, tip_tranzactie, suprafata):
-    # elimina preturile prea mari sau prea mici (probabil greseli)
-    # exceptie la terenuri: daca pretul e pe metru patrat, e inmultit cu suprafata
-    if pret is None:
-        return None
-
     # la terenuri, daca pretul e foarte mic, probabil e pretul pe mp si nu total
     # in cazul asta se inmulteste cu suprafata ca sa rezulte pretul total
     # daca nu exista suprafata, anuntul nu poate fi salvat
@@ -194,13 +189,12 @@ def clean_compartimentare(text):
 
 def build_id_raw(oras, judet, tip_imobiliar, suprafata, etaj, camere,
                  perioada_constructie, tip_tranzactie):
-    # normalizez tipul sa iasa acelasi id de pe orice platforma
+
     tip_clean = normalize_tip_imobil(tip_imobiliar)
 
     parts = [oras, judet, tip_clean, suprafata, etaj, camere,
              perioada_constructie, tip_tranzactie]
-    # lower() la final ca sa nu am duplicate cand un site trimite "Cluj"
-    # si altul "cluj" - iese acelasi id_raw
+
     return "".join(str(x) for x in parts if x is not None).lower()
 
 

@@ -72,6 +72,14 @@ def get_current_user(
             detail="User no longer exists",
         )
 
+    # daca admin a dezactivat userul in timp ce el era logat, il dau afara
+    # la urmatorul request (token-ul mai e valid dar contul nu mai e activ)
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Contul tau a fost dezactivat.",
+        )
+
     return user
 
 

@@ -3,7 +3,7 @@
 
 import os
 import smtplib
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -188,6 +188,11 @@ def _find_matches_for_user(db, user_id, crit):
         .outerjoin(Estate, Anunt.id_sursa_raw == Estate.id_raw)
         .filter(IstoricAnunt.status_anunt == "activ")
         .filter(~Anunt.id_anunt.in_(already_sent_subq))
+        # doar anunturile adaugate azi (in rularea curenta de scraping)
+        # asa evit sa trimit valuri de mailuri cu anunturi vechi cand un user
+        # nou isi seteaza criterii sau cineva schimba criteriile existente
+        # NotificareTrimisa raman pt protectie suplimentara (ETL rulat de 2 ori in aceeasi zi)
+        .filter(Anunt.data_publicare == date.today())
     )
 
     # se aplica filtrele userului - daca un filtru e null inseamna
@@ -259,18 +264,12 @@ def _find_matches_for_user(db, user_id, crit):
 
 
 def notify_users():
-    # daca nu sunt configurate credentialele Gmail nu se poate trimite nimic
-    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
-        print("[Notificari] GMAIL_USER sau GMAIL_APP_PASSWORD nu sunt setate in .env, sar peste trimitere.")
-        return
-
     session = SessionLocal()
     total_trimise = 0
     total_erori = 0
 
     try:
-        # se iau toti userii cu profil de notificari setat pe activ
-        # (cei cu activ=False nu vor sa primeasca mailuri, deci sunt sariti)
+        # se iau toti userii cu profil de notificari setat pe activ (cei cu activ=False nu vor sa primeasca mailuri, deci sunt sariti)
         useri = (
             session.query(AppUser, CriteriiCautare)
             .join(CriteriiCautare, AppUser.id == CriteriiCautare.id_user)
@@ -295,8 +294,7 @@ def notify_users():
 
                 try:
                     _send_email(user.email, subject, html)
-                    # insert in tabela de notificari trimise abia dupa ce
-                    # SMTP a confirmat ca a plecat mailul - altfel daca
+                    # insert in tabela de notificari trimise abia dupa ce SMTP a confirmat ca a plecat mailul - altfel daca
                     # trimiterea pica, anuntul ar fi marcat degeaba ca trimis
                     session.add(NotificareTrimisa(
                         id_user=user.id,
@@ -306,13 +304,10 @@ def notify_users():
                     session.commit()
                     total_trimise += 1
                 except Exception as e:
-                    # daca pica un singur mail, restul trebuie sa mearga in continuare
-                    # se afiseaza eroarea si se trece la urmatorul anunt
+                    # daca pica un singur mail, restul trebuie sa mearga in continuare se afiseaza eroarea si se trece la urmatorul anunt
                     print(f"[Notificari] Eroare la {user.email} pt anunt {anunt['id']}: {e}")
                     session.rollback()
                     total_erori += 1
-
-        print(f"[Notificari] Gata. Trimise: {total_trimise}, erori: {total_erori}")
 
     finally:
         session.close()

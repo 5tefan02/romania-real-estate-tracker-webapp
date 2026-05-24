@@ -9,7 +9,7 @@ def normalize_db():
             # 1. judete
             """
             INSERT INTO judete (nume_judet)
-            SELECT DISTINCT INITCAP(TRIM(TRANSLATE(judet, 'ăâîșțşţĂÂÎȘȚŞŢ', 'aaiststAAISTST')))
+            SELECT DISTINCT INITCAP(TRIM(judet))
             FROM raw_data
             WHERE judet IS NOT NULL AND processed = false
             ON CONFLICT (nume_judet) DO NOTHING;
@@ -19,14 +19,14 @@ def normalize_db():
             """
             INSERT INTO localitati (nume_localitate, id_judet)
             SELECT DISTINCT
-                INITCAP(TRIM(TRANSLATE(raw.oras, 'ăâîșțşţĂÂÎȘȚŞŢ', 'aaiststAAISTST'))),
+                INITCAP(TRIM(raw.oras)),
                 j.id_judet
             FROM raw_data raw
-            JOIN judete j ON INITCAP(TRIM(TRANSLATE(raw.judet, 'ăâîșțşţĂÂÎȘȚŞŢ', 'aaiststAAISTST'))) = j.nume_judet
+            JOIN judete j ON INITCAP(TRIM(raw.judet)) = j.nume_judet
             WHERE raw.processed = false
             AND NOT EXISTS (
                 SELECT 1 FROM localitati l
-                WHERE l.nume_localitate = INITCAP(TRIM(TRANSLATE(raw.oras, 'ăâîșțşţĂÂÎȘȚŞŢ', 'aaiststAAISTST')))
+                WHERE l.nume_localitate = INITCAP(TRIM(raw.oras))
                 AND l.id_judet = j.id_judet
             );
             """,
@@ -113,8 +113,8 @@ def normalize_db():
                 raw.data,
                 raw.id_raw
             FROM raw_data raw
-            JOIN judete j ON INITCAP(TRIM(TRANSLATE(raw.judet, 'ăâîșțşţĂÂÎȘȚŞŢ', 'aaiststAAISTST'))) = j.nume_judet
-            JOIN localitati l ON INITCAP(TRIM(TRANSLATE(raw.oras, 'ăâîșțşţĂÂÎȘȚŞŢ', 'aaiststAAISTST'))) = l.nume_localitate AND l.id_judet = j.id_judet
+            JOIN judete j ON INITCAP(TRIM(raw.judet)) = j.nume_judet
+            JOIN localitati l ON INITCAP(TRIM(raw.oras)) = l.nume_localitate AND l.id_judet = j.id_judet
             LEFT JOIN tipuri_imobil ti ON
                 (CASE
                     WHEN raw.tip_imobiliar ILIKE '%apartament%' OR raw.tip_imobiliar ILIKE '%garsonier%' THEN 'Apartament'
@@ -171,7 +171,7 @@ def normalize_db():
             """
         ]
 
-        print("--- Start Proces Normalizare ---")
+
 
         for i, command in enumerate(sql_commands, 1):
             result = session.execute(text(command))

@@ -64,7 +64,8 @@ def verificare_status(driver, url, platforma):
                 WebDriverWait(driver, 10).until(
                     EC.any_of(
                         EC.presence_of_element_located((By.CSS_SELECTOR, 'strong[data-cy="adPageHeaderPrice"]')),
-                        EC.presence_of_element_located((By.CSS_SELECTOR, '[data-cy="redirectedFromInactiveAd"]'))
+                        EC.presence_of_element_located((By.CSS_SELECTOR, '[data-cy="redirectedFromInactiveAd"]')),
+                        EC.presence_of_element_located((By.CSS_SELECTOR, '[data-cy="expired-ad-alert"]'))
                     )
                 )
             except:
@@ -72,8 +73,14 @@ def verificare_status(driver, url, platforma):
 
             soup = BeautifulSoup(driver.page_source, 'lxml')
 
+            # 2 cazuri de inactiv:
+            # - redirectedFromInactiveAd: URL-ul te duce pe o pagina "anunt indisponibil"
+            # - expired-ad-alert: anuntul mai e accesibil dar are banner ca a expirat
             if soup.find(attrs={'data-cy': 'redirectedFromInactiveAd'}):
-                print(f"[Inactiv - Storia] Banner: {url}")
+                print(f"[Inactiv - Storia] Banner redirect: {url}")
+                return None
+            if soup.find(attrs={'data-cy': 'expired-ad-alert'}):
+                print(f"[Inactiv - Storia] Banner expirat: {url}")
                 return None
 
             pret_element = soup.find('strong', {'data-cy': 'adPageHeaderPrice'})

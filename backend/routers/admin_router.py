@@ -15,6 +15,7 @@ from db.models import (
     Anunt,
     AppUser,
     CriteriiCautare,
+    IstoricAnunt,
     NotificareTrimisa,
 )
 
@@ -69,16 +70,13 @@ def delete_user(
     db: Session = Depends(get_db),
     current_user: AppUser = Depends(require_admin),
 ):
-    # blocaj: admin-ul nu se poate sterge pe el insusi
-    # daca s-ar putea, ar putea ramane aplicatia fara niciun admin
-    # si nu s-ar mai putea face nimic din UI - ar trebui reparat direct din DB
+    # blocaj: admin-ul nu se poate dezactiva pe el insusi
     if user_id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Nu te poti sterge pe tine insuti.",
+            detail="Nu te poti dezactiva pe tine insuti.",
         )
 
-    # caut userul in DB
     user = db.query(AppUser).filter(AppUser.id == user_id).first()
     if user is None:
         raise HTTPException(
@@ -86,11 +84,12 @@ def delete_user(
             detail="Utilizatorul nu exista.",
         )
 
-    # sterg userul; favoritele, criteriile si notificarile trimise
-    # se sterg si ele automat prin ON DELETE CASCADE (vezi db/models.py)
-    db.delete(user)
+    # soft-delete: nu sterg fizic, doar dezactivez contul
+    # login-ul si get_current_user resping userii cu is_active=False
+    # favoritele, criteriile si notificarile raman intacte (eventual restore)
+    user.is_active = False
     db.commit()
-    return {"message": "Utilizatorul a fost sters."}
+    return {"message": "Utilizatorul a fost dezactivat."}
 
 
 # --- listings ---
@@ -137,12 +136,24 @@ def delete_listing(
             detail="Anuntul nu exista.",
         )
 
-    # sterg anuntul - imaginile si istoricul se sterg automat prin cascade=all,
-    # iar favoritele si notificarile trimise prin ON DELETE CASCADE pe DB
-    # (vezi db/models.py). raw_data nu se atinge - acolo ramane sursa originala.
-    db.delete(anunt)
-    db.commit()
-    return {"message": "Anuntul a fost sters."}
+    # soft-delete: gasesc istoricul activ si il trec pe inactiv
+    # query-ul de listings filtreaza pe status_anunt = 'activ' deci anuntul
+    # dispare din pagina, dar ramane in DB cu istoricul intact
+    istoric_activ = (
+        db.query(IstoricAnunt)
+        .filter(IstoricAnunt.id_anunt == id_anunt)
+        .filter(IstoricAnunt.status_anunt == "activ")
+        .first()
+    )
+
+    if istoric_activ:
+        istoric_activ.status_anunt = "inactiv"
+        istoric_activ.data_sfarsit = date.today()
+        db.commit()
+        return {"message": "Anuntul a fost dezactivat."}
+
+    # daca nu exista istoric activ (anuntul era deja inactivat) nu am ce face
+    return {"message": "Anuntul era deja inactiv."}
 
 
 # --- etl ---

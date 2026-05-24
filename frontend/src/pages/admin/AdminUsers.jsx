@@ -51,7 +51,8 @@ export default function AdminUsers() {
     setUserToDelete(null);
   }
 
-  // se apeleaza cand userul confirma stergerea in modal
+  // se apeleaza cand admin confirma dezactivarea in modal
+  // (soft-delete: userul ramane in DB cu is_active=false)
   async function handleDelete() {
     if (userToDelete === null) {
       return;
@@ -59,12 +60,14 @@ export default function AdminUsers() {
     setDeleting(true);
     try {
       await api.deleteAdminUser(userToDelete.id);
-      // dau filter ca sa scot userul sters din lista, fara sa refac fetch
-      const newList = users.filter((u) => u.id !== userToDelete.id);
+      // actualizez randul local cu is_active=false in loc sa-l scot din lista
+      const newList = users.map((u) =>
+        u.id === userToDelete.id ? { ...u, is_active: false } : u,
+      );
       setUsers(newList);
       closeConfirm();
     } catch (err) {
-      setError(err.message || "Eroare la stergere");
+      setError(err.message || "Eroare la dezactivare");
     } finally {
       setDeleting(false);
     }
@@ -102,6 +105,7 @@ export default function AdminUsers() {
                   <th className="px-4 py-3">Username</th>
                   <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Rol</th>
+                  <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Creat</th>
                   <th className="px-4 py-3 text-right">Actiuni</th>
                 </tr>
@@ -130,8 +134,30 @@ export default function AdminUsers() {
                     roleClass = "rounded bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700";
                   }
 
+                  // userii dezactivati au alta culoare de rand + buton blocat
+                  const isInactive = u.is_active === false;
+                  const rowClass = isInactive
+                    ? "border-t border-gray-100 bg-gray-50 text-gray-400"
+                    : "border-t border-gray-100 hover:bg-gray-50";
+
+                  const statusBadge = isInactive ? (
+                    <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                      inactiv
+                    </span>
+                  ) : (
+                    <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                      activ
+                    </span>
+                  );
+
+                  // butonul de dezactivare e blocat pt isSelf si pt userii deja inactivi
+                  const buttonDisabled = isSelf || isInactive;
+                  let buttonTitle = "Dezactiveaza utilizatorul";
+                  if (isSelf) buttonTitle = "Nu te poti dezactiva pe tine insuti";
+                  else if (isInactive) buttonTitle = "Userul e deja inactiv";
+
                   return (
-                    <tr key={u.id} className="border-t border-gray-100 hover:bg-gray-50">
+                    <tr key={u.id} className={rowClass}>
                       <td className="px-4 py-3 text-gray-500">{u.id}</td>
                       <td className="px-4 py-3 font-medium text-gray-800">
                         {u.username}
@@ -145,15 +171,16 @@ export default function AdminUsers() {
                       <td className="px-4 py-3">
                         <span className={roleClass}>{u.role}</span>
                       </td>
+                      <td className="px-4 py-3">{statusBadge}</td>
                       <td className="px-4 py-3 text-gray-500">{createdFormatted}</td>
                       <td className="px-4 py-3 text-right">
                         <button
-                          disabled={isSelf}
+                          disabled={buttonDisabled}
                           onClick={() => openConfirm(u)}
                           className="rounded bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
-                          title={isSelf ? "Nu te poti sterge pe tine insuti" : "Sterge utilizatorul"}
+                          title={buttonTitle}
                         >
-                          Sterge
+                          Dezactiveaza
                         </button>
                       </td>
                     </tr>
@@ -163,7 +190,7 @@ export default function AdminUsers() {
                 {/* daca nu sunt useri afisez o linie cu mesaj */}
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                    <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
                       Nu exista utilizatori.
                     </td>
                   </tr>
@@ -174,21 +201,20 @@ export default function AdminUsers() {
         </div>
       </main>
 
-      {/* modal de confirmare la stergere
-          arat doar daca showConfirm e true si am un user de sters in state */}
+      {/* modal de confirmare la dezactivare
+          arat doar daca showConfirm e true si am un user de procesat in state */}
       {showConfirm && userToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <h3 className="mb-2 text-lg font-semibold text-gray-800">
-              Confirmare stergere
+              Confirmare dezactivare
             </h3>
             <p className="mb-4 text-sm text-gray-600">
-              Sigur stergi userul <strong>{userToDelete.username}</strong> (
+              Sigur dezactivezi userul <strong>{userToDelete.username}</strong> (
               {userToDelete.email})?
               <br />
-              Se sterg si toate favoritele, criteriile de notificari si
-              istoricul de mailuri trimise pentru el. Actiunea nu se poate
-              undo.
+              Userul nu se va mai putea autentifica, dar contul si datele
+              raman in baza de date (favorite, criterii, notificari).
             </p>
             <div className="flex justify-end gap-2">
               <button
@@ -203,7 +229,7 @@ export default function AdminUsers() {
                 disabled={deleting}
                 className="rounded bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:bg-gray-400"
               >
-                {deleting ? "Se sterge..." : "Sterge definitiv"}
+                {deleting ? "Se dezactiveaza..." : "Dezactiveaza"}
               </button>
             </div>
           </div>

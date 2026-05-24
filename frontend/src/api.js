@@ -148,6 +148,42 @@ export function fetchStatusBreakdown(filters = {}) {
   return request(`/api/stats/status-breakdown${statsQuery(filters)}`, { method: "GET" });
 }
 
+export function fetchRoomsDistribution(filters = {}) {
+  return request(`/api/stats/rooms-distribution${statsQuery(filters)}`, { method: "GET" });
+}
+
+export function fetchPeriodDistribution(filters = {}) {
+  return request(`/api/stats/period-distribution${statsQuery(filters)}`, { method: "GET" });
+}
+
+export function fetchCompartmentDistribution(filters = {}) {
+  return request(`/api/stats/compartment-distribution${statsQuery(filters)}`, { method: "GET" });
+}
+
+export function fetchTopCities(filters = {}) {
+  return request(`/api/stats/top-cities${statsQuery(filters)}`, { method: "GET" });
+}
+
+export function fetchSurfaceDistribution(filters = {}) {
+  return request(`/api/stats/surface-distribution${statsQuery(filters)}`, { method: "GET" });
+}
+
+export function fetchPriceChanges(filters = {}) {
+  return request(`/api/stats/price-changes${statsQuery(filters)}`, { method: "GET" });
+}
+
+export function fetchListingLifetime(filters = {}) {
+  return request(`/api/stats/listing-lifetime${statsQuery(filters)}`, { method: "GET" });
+}
+
+export function fetchTopBottomCounties(filters = {}) {
+  return request(`/api/stats/top-bottom-counties${statsQuery(filters)}`, { method: "GET" });
+}
+
+export function fetchSurfaceVsPrice(filters = {}) {
+  return request(`/api/stats/surface-vs-price${statsQuery(filters)}`, { method: "GET" });
+}
+
 // ml
 
 export function fetchModelInfo() {

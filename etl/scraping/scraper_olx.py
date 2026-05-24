@@ -5,7 +5,7 @@ from webdriver_manager.firefox import GeckoDriverManager
 from bs4 import BeautifulSoup
 import time
 from datetime import datetime
-from etl.processing.cleaner import clean_location, clean_price, build_id_raw
+from etl.processing.cleaner import clean_location, clean_price
 
 
 def scrape_olx():
@@ -113,17 +113,11 @@ def scrape_olx():
             data = datetime.today().strftime('%Y-%m-%d')
             processed = False
 
-            id_raw = build_id_raw(
-                oras, judet, tip_imobiliar, suprafata, etaj,
-                camere, perioada_constructie, tip_tranzactie
-            )
-
         except Exception as e:
             print(f"Eroare: {e}")
             continue
 
         rezultate.append({
-            'id_raw': id_raw,
             'URL_anunt': link,
             'judet': judet,
             'oras': oras,
@@ -141,7 +135,7 @@ def scrape_olx():
             'processed': processed,
             'imagini_url': '|'.join(imagini_url) if imagini_url else ''})
 
-        print(id_raw, link, judet, oras, suprafata, etaj, perioada_constructie, an_constructie, compartimentare, camere, tip_tranzactie, tip_imobiliar, platforma, pret, data)
+        print(link, judet, oras, suprafata, etaj, perioada_constructie, an_constructie, compartimentare, camere, tip_tranzactie, tip_imobiliar, platforma, pret, data)
 
     driver.quit()
     return rezultate

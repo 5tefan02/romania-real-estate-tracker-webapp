@@ -12,18 +12,24 @@ import {
   Pie,
   PieChart,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
+  ZAxis,
 } from "recharts";
 
 import * as api from "../api.js";
 
-// filtre goale
+// filtre goale (default tranzactie = vanzare, tip imobil = Apartament)
+// amestecul de categorii strica statisticile - chiriile sunt in sute de EUR vs
+// vanzarile in zeci de mii, iar apartamentele/casele/terenurile au scari de
+// suprafata si pret complet diferite
 const EMPTY_FILTERS = {
   county: "",
-  transaction_type: "",
-  property_type: "",
+  transaction_type: "vanzare",
+  property_type: "Apartament",
 };
 
 // culori pt pie si bare
@@ -72,8 +78,16 @@ export default function Statistics() {
   // cate un state pt fiecare grafic
   const [trend, setTrend] = useState({ data: [], loading: true, error: "" });
   const [distribution, setDistribution] = useState({ data: [], loading: true, error: "" });
-  const [platforms, setPlatforms] = useState({ data: [], loading: true, error: "" });
   const [pps, setPps] = useState({ data: [], loading: true, error: "" });
+  const [rooms, setRooms] = useState({ data: [], loading: true, error: "" });
+  const [period, setPeriod] = useState({ data: [], loading: true, error: "" });
+  const [compartment, setCompartment] = useState({ data: [], loading: true, error: "" });
+  const [topCities, setTopCities] = useState({ data: [], loading: true, error: "" });
+  const [surfaceDist, setSurfaceDist] = useState({ data: [], loading: true, error: "" });
+  const [priceChanges, setPriceChanges] = useState({ data: null, loading: true, error: "" });
+  const [lifetime, setLifetime] = useState({ data: null, loading: true, error: "" });
+  const [topBottom, setTopBottom] = useState({ data: null, loading: true, error: "" });
+  const [scatter, setScatter] = useState({ data: [], loading: true, error: "" });
 
   // la mount iau optiunile
   useEffect(() => {
@@ -86,19 +100,28 @@ export default function Statistics() {
   // cand se schimba filtrele refac toate requesturile
   useEffect(() => {
     // un helper mic sa nu repet
-    function load(fetchFn, setState, transform = (x) => x) {
-      setState({ data: [], loading: true, error: "" });
+    // initial e [] default (lista), dar pt endpoint-urile care intorc obiect pun null
+    function load(fetchFn, setState, transform = (x) => x, initial = []) {
+      setState({ data: initial, loading: true, error: "" });
       fetchFn(appliedFilters)
         .then((raw) => setState({ data: transform(raw), loading: false, error: "" }))
         .catch((err) =>
-          setState({ data: [], loading: false, error: err.message || "Eroare la date" }),
+          setState({ data: initial, loading: false, error: err.message || "Eroare la date" }),
         );
     }
 
     load(api.fetchPriceTrend, setTrend);
     load(api.fetchPriceDistribution, setDistribution);
-    load(api.fetchListingsPerPlatform, setPlatforms);
     load(api.fetchPricePerSqm, setPps, (rows) => rows.slice(0, 15));
+    load(api.fetchRoomsDistribution, setRooms);
+    load(api.fetchPeriodDistribution, setPeriod);
+    load(api.fetchCompartmentDistribution, setCompartment);
+    load(api.fetchTopCities, setTopCities);
+    load(api.fetchSurfaceDistribution, setSurfaceDist);
+    load(api.fetchPriceChanges, setPriceChanges, (x) => x, null);
+    load(api.fetchListingLifetime, setLifetime, (x) => x, null);
+    load(api.fetchTopBottomCounties, setTopBottom, (x) => x, null);
+    load(api.fetchSurfaceVsPrice, setScatter);
   }, [appliedFilters]);
 
   function handleFilterChange(key, value) {
@@ -157,7 +180,6 @@ export default function Statistics() {
                 value={filters.transaction_type}
                 onChange={(e) => handleFilterChange("transaction_type", e.target.value)}
               >
-                <option value="">Toate</option>
                 <option value="vanzare">Vanzare</option>
                 <option value="inchiriere">Inchiriere</option>
               </select>
@@ -171,7 +193,6 @@ export default function Statistics() {
                 onChange={(e) => handleFilterChange("property_type", e.target.value)}
                 disabled={!options}
               >
-                <option value="">Toate</option>
                 {options?.property_types.map((p) => (
                   <option key={p} value={p}>
                     {p}
@@ -193,78 +214,55 @@ export default function Statistics() {
 
         {/* grid cu graficele */}
         <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {/* trend preturi pe luni */}
-          <ChartCard
-            title="Trend pret (media pe luna)"
-            loading={trend.loading}
-            error={trend.error}
-            isEmpty={trend.data.length === 0}
-          >
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={trend.data}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={formatShort} />
-                <Tooltip formatter={(v) => `${v} €`} />
-                <Line
-                  type="monotone"
-                  dataKey="average_price"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartCard>
+          {/* trend preturi pe saptamani - ocupa toata latimea */}
+          <div className="lg:col-span-2">
+            <ChartCard
+              title="Trend pret (media pe saptamana)"
+              loading={trend.loading}
+              error={trend.error}
+              isEmpty={trend.data.length === 0}
+            >
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart data={trend.data}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="week" />
+                  <YAxis tickFormatter={formatShort} />
+                  <Tooltip formatter={(v) => `${v} €`} />
+                  <Line
+                    type="monotone"
+                    dataKey="average_price"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
 
-          {/* distributia preturilor */}
-          <ChartCard
-            title="Distributia preturilor"
-            loading={distribution.loading}
-            error={distribution.error}
-            isEmpty={
-              distribution.data.length === 0 ||
-              distribution.data.every((r) => r.count === 0)
-            }
-          >
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={distribution.data}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="range" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" fill="#10b981" />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          {/* cate anunturi are fiecare platforma */}
-          <ChartCard
-            title="Anunturi pe platforma"
-            loading={platforms.loading}
-            error={platforms.error}
-            isEmpty={platforms.data.length === 0}
-          >
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={platforms.data}
-                  dataKey="count"
-                  nameKey="platform"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={90}
-                  label
-                >
-                  {platforms.data.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartCard>
+          {/* distributia preturilor - ocupa toata latimea ca sa intre mai multe bare */}
+          <div className="lg:col-span-2">
+            <ChartCard
+              title="Distributia preturilor"
+              loading={distribution.loading}
+              error={distribution.error}
+              isEmpty={
+                distribution.data.length === 0 ||
+                distribution.data.every((r) => r.count === 0)
+              }
+            >
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={distribution.data}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  {/* angle ca sa nu se suprapuna etichetele cand sunt multe bare */}
+                  <XAxis dataKey="range" angle={-30} textAnchor="end" height={60} />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#10b981" />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
 
           {/* pret pe mp - top 15 orase */}
           <ChartCard
@@ -284,6 +282,260 @@ export default function Statistics() {
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
+
+          {/* distributia pe nr de camere */}
+          <ChartCard
+            title="Distributia pe nr de camere"
+            loading={rooms.loading}
+            error={rooms.error}
+            isEmpty={rooms.data.length === 0 || rooms.data.every((r) => r.count === 0)}
+          >
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={rooms.data}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="rooms" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" fill="#8b5cf6" />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* distributia pe perioada constructiei */}
+          <ChartCard
+            title="Distributia pe perioada constructiei"
+            loading={period.loading}
+            error={period.error}
+            isEmpty={period.data.length === 0}
+          >
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={period.data}
+                  dataKey="count"
+                  nameKey="period"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={90}
+                  label
+                >
+                  {period.data.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* distributia pe compartimentare */}
+          <ChartCard
+            title="Distributia pe compartimentare"
+            loading={compartment.loading}
+            error={compartment.error}
+            isEmpty={compartment.data.length === 0}
+          >
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={compartment.data}
+                  dataKey="count"
+                  nameKey="compartment"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={90}
+                  label
+                >
+                  {compartment.data.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* distributia pe suprafata (mp) */}
+          <ChartCard
+            title="Distributia pe suprafata (mp)"
+            loading={surfaceDist.loading}
+            error={surfaceDist.error}
+            isEmpty={
+              surfaceDist.data.length === 0 ||
+              surfaceDist.data.every((r) => r.count === 0)
+            }
+          >
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={surfaceDist.data}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="range" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" fill="#ec4899" />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* top 10 orase dupa anunturi active */}
+          <ChartCard
+            title="Top 10 orase (anunturi active)"
+            loading={topCities.loading}
+            error={topCities.error}
+            isEmpty={topCities.data.length === 0}
+          >
+            <ResponsiveContainer
+              width="100%"
+              height={Math.max(280, topCities.data.length * 28)}
+            >
+              <BarChart data={topCities.data} layout="vertical" margin={{ left: 40 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis type="category" dataKey="city" width={140} interval={0} />
+                <Tooltip />
+                <Bar dataKey="count" fill="#10b981" />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* top 5 judete - cele mai scumpe */}
+          <ChartCard
+            title="Top 5 judete (cele mai scumpe)"
+            loading={topBottom.loading}
+            error={topBottom.error}
+            isEmpty={!topBottom.data || topBottom.data.top.length === 0}
+          >
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart
+                data={topBottom.data?.top || []}
+                layout="vertical"
+                margin={{ left: 40 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" tickFormatter={formatShort} />
+                <YAxis type="category" dataKey="county" width={140} interval={0} />
+                <Tooltip formatter={(v) => `${v} €`} />
+                <Bar dataKey="avg_price" fill="#ef4444" />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* bottom 5 judete - cele mai ieftine */}
+          <ChartCard
+            title="Bottom 5 judete (cele mai ieftine)"
+            loading={topBottom.loading}
+            error={topBottom.error}
+            isEmpty={!topBottom.data || topBottom.data.bottom.length === 0}
+          >
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart
+                data={topBottom.data?.bottom || []}
+                layout="vertical"
+                margin={{ left: 40 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" tickFormatter={formatShort} />
+                <YAxis type="category" dataKey="county" width={140} interval={0} />
+                <Tooltip formatter={(v) => `${v} €`} />
+                <Bar dataKey="avg_price" fill="#10b981" />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* scatter suprafata vs pret */}
+          <ChartCard
+            title="Suprafata vs pret (esantion)"
+            loading={scatter.loading}
+            error={scatter.error}
+            isEmpty={scatter.data.length === 0}
+          >
+            <ResponsiveContainer width="100%" height={320}>
+              <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  type="number"
+                  dataKey="surface"
+                  name="Suprafata"
+                  unit=" mp"
+                />
+                <YAxis
+                  type="number"
+                  dataKey="price"
+                  name="Pret"
+                  tickFormatter={formatShort}
+                />
+                {/* ZAxis seteaza marimea punctelor (mai mic = mai clar la multe puncte) */}
+                <ZAxis range={[15, 15]} />
+                <Tooltip
+                  cursor={{ strokeDasharray: "3 3" }}
+                  formatter={(v, name) =>
+                    name === "Pret" ? `${v} €` : `${v}`
+                  }
+                />
+                <Scatter data={scatter.data} fill="#3b82f6" fillOpacity={0.5} />
+              </ScatterChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* modificari de pret (KPI) */}
+          <ChartCard
+            title="Modificari de pret"
+            loading={priceChanges.loading}
+            error={priceChanges.error}
+            isEmpty={!priceChanges.data || priceChanges.data.total_anunturi === 0}
+          >
+            <div className="flex h-64 flex-col justify-center gap-3 px-2">
+              <div className="text-center">
+                <div className="text-4xl font-bold text-blue-600">
+                  {priceChanges.data?.procent_anunturi_cu_modificari ?? 0}%
+                </div>
+                <div className="text-xs text-gray-500">
+                  din anunturi au avut cel putin o modificare de pret
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <div className="rounded bg-red-50 p-3 text-center">
+                  <div className="text-xs uppercase text-gray-600">Scaderi</div>
+                  <div className="text-xl font-semibold text-red-600">
+                    {priceChanges.data?.scaderi ?? 0}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    media {priceChanges.data?.avg_scadere_pct ?? 0}%
+                  </div>
+                </div>
+                <div className="rounded bg-green-50 p-3 text-center">
+                  <div className="text-xs uppercase text-gray-600">Cresteri</div>
+                  <div className="text-xl font-semibold text-green-600">
+                    {priceChanges.data?.cresteri ?? 0}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    media +{priceChanges.data?.avg_crestere_pct ?? 0}%
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ChartCard>
+
+          {/* timpul mediu activ - ocupa toata latimea ca sa umple golul */}
+          <div className="lg:col-span-2">
+            <ChartCard
+              title="Timpul mediu de viata al unui anunt"
+              loading={lifetime.loading}
+              error={lifetime.error}
+              isEmpty={!lifetime.data || lifetime.data.count === 0}
+            >
+              <div className="flex h-64 flex-col items-center justify-center gap-2">
+                <div className="text-7xl font-bold text-indigo-600">
+                  {lifetime.data?.avg_days ?? 0}
+                </div>
+                <div className="text-base text-gray-600">zile in medie</div>
+                <div className="mt-3 text-xs text-gray-500">
+                  (calculat pe {lifetime.data?.count ?? 0} anunturi inactivate)
+                </div>
+              </div>
+            </ChartCard>
+          </div>
         </div>
       </main>
     </div>

@@ -172,7 +172,7 @@ export default function ListingCard({ listing, onToggleFavorite, onUpdate, onDel
               {listing.camere} camere
             </span>
           )}
-          {listing.etaj && (
+          {listing.etaj && listing.tip_imobiliar !== "Casa" && (
             <span className="rounded bg-gray-100 px-2 py-0.5">
               etaj {listing.etaj}
             </span>
@@ -202,7 +202,7 @@ export default function ListingCard({ listing, onToggleFavorite, onUpdate, onDel
               onClick={() => setShowConfirmDelete(true)}
               className="rounded bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
             >
-              Sterge
+              Dezactiveaza
             </button>
           </div>
         )}
@@ -239,12 +239,12 @@ export default function ListingCard({ listing, onToggleFavorite, onUpdate, onDel
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <h3 className="mb-2 text-lg font-semibold text-gray-800">
-              Confirmare stergere
+              Confirmare dezactivare
             </h3>
             <p className="mb-4 text-sm text-gray-600">
-              Sigur stergi anuntul de la {listing.localitate || "?"} -{" "}
-              {formatPrice(listing.pret)} EUR? Aceasta actiune nu se poate
-              undo.
+              Sigur dezactivezi anuntul de la {listing.localitate || "?"} -{" "}
+              {formatPrice(listing.pret)} EUR? Anuntul va disparea din lista,
+              dar ramane in baza de date (istoricul si imaginile se pastreaza).
             </p>
 
             {deleteError && (
@@ -266,7 +266,7 @@ export default function ListingCard({ listing, onToggleFavorite, onUpdate, onDel
                 disabled={deleting}
                 className="rounded bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:bg-gray-400"
               >
-                {deleting ? "Se sterge..." : "Sterge definitiv"}
+                {deleting ? "Se dezactiveaza..." : "Dezactiveaza"}
               </button>
             </div>
           </div>

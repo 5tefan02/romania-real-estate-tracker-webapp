@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 import time
 from datetime import datetime
 import re
-from etl.processing.cleaner import clean_diacritics, clean_location, clean_price, clean_suprafata, clean_etaj, an_to_perioada, clean_compartimentare, build_id_raw
+from etl.processing.cleaner import clean_diacritics, clean_location, clean_price, clean_suprafata, clean_etaj, an_to_perioada, clean_compartimentare
 
 
 def scrape_storia(url_start, tip_tranzactie, tip_imobiliar):
@@ -20,7 +20,6 @@ def scrape_storia(url_start, tip_tranzactie, tip_imobiliar):
     options.add_argument("--window-size=1920,1080")
     options.page_load_strategy = 'eager'
 
-    print("Pornesc driverul pentru Storia...")
     driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()), options=options)
 
     driver.get(url_start)
@@ -128,13 +127,7 @@ def scrape_storia(url_start, tip_tranzactie, tip_imobiliar):
             data = datetime.today().strftime('%Y-%m-%d')
             processed = False
 
-            id_raw = build_id_raw(
-                oras, judet, tip_imobiliar, suprafata, etaj_final,
-                camere, perioada_constructie, tip_tranzactie
-            )
-
             rezultate.append({
-                'id_raw': id_raw,
                 'URL_anunt': link,
                 'judet': judet,
                 'oras': oras,

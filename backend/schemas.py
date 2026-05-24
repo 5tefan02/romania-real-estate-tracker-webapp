@@ -28,12 +28,13 @@ class UserOut(BaseModel):
 
 
 class AdminUserOut(BaseModel):
-    # ca UserOut dar cu created_at - pt tabelul de admin
+    # ca UserOut dar cu created_at si is_active - pt tabelul de admin
     id: int
     username: str
     email: str
     role: str
     created_at: Optional[datetime] = None
+    is_active: bool = True
 
     model_config = {"from_attributes": True}
 

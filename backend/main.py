@@ -85,6 +85,13 @@ def login(
             detail="Invalid username or password",
         )
 
+    # blocaj pt useri dezactivati de admin (soft-delete)
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Contul tau a fost dezactivat.",
+        )
+
     token = create_access_token(user_id=user.id)
 
     # httponly = js nu poate citi cookie-ul
@@ -374,8 +381,7 @@ def list_listings(
     if suprafata_max is not None:
         q = q.filter(Anunt.suprafata <= suprafata_max)
     if camere is not None:
-        # camere e int pe anunturi (dupa normalizare)
-        # anunturile fara camere setate (NULL) sunt excluse cand filtrul e activ
+        # camere e int pe anunturi (dupa normalizare) anunturile fara camere setate (NULL) sunt excluse cand filtrul e activ
         q = q.filter(Anunt.camere == camere)
     # arat doar anunturile active, restul nu mai apar deloc in listings
     q = q.filter(IstoricAnunt.status_anunt == "activ")
@@ -410,9 +416,7 @@ def list_favorites(
     db: Session = Depends(get_db),
     current_user: AppUser = Depends(get_current_user),
 ):
-    # pornesc de la acelasi query ca listings si restrang la favoritele user-ului
-    # nu mai filtrez pe status="activ" - daca anuntul s-a inactivat dupa ce l-a salvat,
-    # tot vreau sa-l vada in lista lui de favorite
+
     q = (
         _build_listings_base_query(db)
         .join(Favorite, Favorite.id_anunt == Anunt.id_anunt)

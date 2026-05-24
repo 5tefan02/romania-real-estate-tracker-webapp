@@ -16,16 +16,11 @@ class AppUser(Base):
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False)
     created_at = Column(DateTime(timezone=True))
+    # soft-delete - admin il poate dezactiva fara sa stearga din DB
+    # (ca sa pastrez favoritele/criteriile/notificarile pt eventual restore)
+    is_active = Column(Boolean, nullable=False, default=True)
 
 
-class Favorite(Base):
-    # anunturile salvate la "preferate" de un user
-    # PK compus (id_user, id_anunt) ca sa nu poata adauga acelasi anunt de doua ori
-    __tablename__ = "favorite"
-
-    id_user = Column(Integer, ForeignKey("app_users.id", ondelete="CASCADE"), primary_key=True)
-    id_anunt = Column(Integer, ForeignKey("anunturi.id_anunt", ondelete="CASCADE"), primary_key=True)
-    created_at = Column(DateTime(timezone=True))
 
 
 class Estate(Base):
@@ -164,10 +159,6 @@ class ImagineAnunt(Base):
 
 
 class CriteriiCautare(Base):
-    # filtrele setate de user pentru notificari pe mail
-    # un user are un singur profil (de aia UNIQUE pe id_user)
-    # un filtru pus pe null inseamna "orice" pe campul ala
-    # activ = false -> userul a oprit notificarile, nu mai primeste mailuri
     __tablename__ = "criterii_cautare"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -187,11 +178,15 @@ class CriteriiCautare(Base):
 
 
 class NotificareTrimisa(Base):
-    # evidenta anunturilor trimise pe mail catre fiecare user
-    # asa userul nu primeste de doua ori acelasi anunt
-    # PK compus pe (id_user, id_anunt) -> nu se accepta duplicate
     __tablename__ = "notificari_trimise"
 
     id_user = Column(Integer, ForeignKey("app_users.id", ondelete="CASCADE"), primary_key=True)
     id_anunt = Column(Integer, ForeignKey("anunturi.id_anunt", ondelete="CASCADE"), primary_key=True)
     data_trimitere = Column(DateTime(timezone=True))
+
+class Favorite(Base):
+    __tablename__ = "favorite"
+
+    id_user = Column(Integer, ForeignKey("app_users.id", ondelete="CASCADE"), primary_key=True)
+    id_anunt = Column(Integer, ForeignKey("anunturi.id_anunt", ondelete="CASCADE"), primary_key=True)
+    created_at = Column(DateTime(timezone=True))

@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 import time
 from datetime import datetime
 import re
-from etl.processing.cleaner import clean_location, clean_price, clean_suprafata, clean_etaj, an_to_perioada, build_id_raw
+from etl.processing.cleaner import clean_location, clean_price, clean_suprafata, clean_etaj, an_to_perioada
 
 
 def scrape_imobiliarero(url_start, tip_tranzactie):
@@ -155,17 +155,11 @@ def scrape_imobiliarero(url_start, tip_tranzactie):
 
             processed = False
 
-            id_raw = build_id_raw(
-                oras, judet, tip_imobiliar, suprafata, etaj,
-                camere, perioada_constructie, tip_tranzactie
-            )
-
         except Exception as e:
             print(f"Eroare la link-ul {link}: {e}")
             continue
 
         rezultate.append({
-            'id_raw': id_raw,
             'URL_anunt': link,
             'judet': judet,
             'oras': oras,
