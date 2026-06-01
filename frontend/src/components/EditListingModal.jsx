@@ -13,9 +13,11 @@ export default function EditListingModal({ listing, onClose, onSave }) {
   const [etaj, setEtaj] = useState("");
   const [camere, setCamere] = useState("");
   const [idCompartimentare, setIdCompartimentare] = useState("");
+  const [idTipImobiliar, setIdTipImobiliar] = useState("");
 
-  // lista de compartimentari pentru dropdown - se ia o data la deschidere
+  // listele pt dropdown-uri - se iau o data la deschidere
   const [compartimentari, setCompartimentari] = useState([]);
+  const [tipuriImobil, setTipuriImobil] = useState([]);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -31,16 +33,21 @@ export default function EditListingModal({ listing, onClose, onSave }) {
     setIdCompartimentare(
       listing.id_compartimentare == null ? "" : String(listing.id_compartimentare),
     );
+    setIdTipImobiliar(
+      listing.id_tip_imobiliar == null ? "" : String(listing.id_tip_imobiliar),
+    );
 
     // iau optiunile - acelasi endpoint ca pe pagina de listings
     api
       .fetchFilters()
       .then((opts) => {
         setCompartimentari(opts.compartimentari || []);
+        setTipuriImobil(opts.tipuri_imobil || []);
       })
       .catch(() => {
-        // daca pica fetch-ul las dropdown-ul gol, nu blochez restul formularului
+        // daca pica fetch-ul las dropdown-urile goale, nu blochez restul formularului
         setCompartimentari([]);
+        setTipuriImobil([]);
       });
   }, [listing]);
 
@@ -68,6 +75,7 @@ export default function EditListingModal({ listing, onClose, onSave }) {
         etaj: etaj === "" ? null : etaj,
         camere: toIntOrNull(camere),
         id_compartimentare: toIntOrNull(idCompartimentare),
+        id_tip_imobiliar: toIntOrNull(idTipImobiliar),
       };
 
       await api.updateAdminListing(listing.id, payload);
@@ -146,7 +154,25 @@ export default function EditListingModal({ listing, onClose, onSave }) {
             />
           </div>
 
-          <div className="sm:col-span-2">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Tip imobil
+            </label>
+            <select
+              className={inputClass}
+              value={idTipImobiliar}
+              onChange={(e) => setIdTipImobiliar(e.target.value)}
+            >
+              <option value="">-</option>
+              {tipuriImobil.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.nume}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">
               Compartimentare
             </label>

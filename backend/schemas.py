@@ -47,6 +47,7 @@ class AdminListingUpdate(BaseModel):
     suprafata: Optional[int] = None
     etaj: Optional[str] = None
     id_compartimentare: Optional[int] = None
+    id_tip_imobiliar: Optional[int] = None
     camere: Optional[int] = None
 
 

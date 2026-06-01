@@ -138,13 +138,9 @@ export default function Profile() {
 
         {/* mai jos e formularul cu filtrele pentru notificari */}
         <section className="rounded-lg bg-white p-6 shadow-sm">
-          <h2 className="mb-2 text-lg font-medium text-gray-800">
+          <h2 className="mb-4 text-lg font-medium text-gray-800">
             Notificari pe email
           </h2>
-          <p className="mb-4 text-sm text-gray-600">
-            Configureaza ce anunturi te intereseaza. Cand apar anunturi noi
-            care se potrivesc, primesti un email.
-          </p>
 
           {loading && (
             <div className="text-sm text-gray-500">Se incarca...</div>
@@ -324,17 +320,28 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* bifa pentru pornit/oprit notificarile - daca e debifata
-                  userul nu mai primeste mailuri pana o bifeaza din nou */}
-              <label className="mt-4 flex items-center gap-2 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-gray-300"
-                  checked={criterii.activ}
-                  onChange={(e) => handleChange("activ", e.target.checked)}
-                />
-                Trimite-mi emailuri cu anunturile noi care corespund
-              </label>
+              {/* toggle switch pentru pornit/oprit notificarile
+                  daca e off, userul nu mai primeste mailuri pana il pune pe on */}
+              <div className="mt-4 flex items-center justify-between rounded border border-gray-200 px-3 py-2">
+                <div className="text-sm font-medium text-gray-700">
+                  Notificari pe email
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={criterii.activ}
+                  onClick={() => handleChange("activ", !criterii.activ)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                    criterii.activ ? "bg-green-500" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      criterii.activ ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
 
               {error && (
                 <div className="mt-4 rounded bg-red-50 p-3 text-sm text-red-700">

@@ -200,7 +200,6 @@ def get_filter_options(
     db: Session = Depends(get_db),
     current_user: AppUser = Depends(get_current_user),
 ):
-    # tot ce ii trebuie frontendului pt dropdown-uri dintr-un singur request
     judete = db.query(Judet).order_by(Judet.nume_judet).all()
     localitati = db.query(Localitate).order_by(Localitate.nume_localitate).all()
     tipuri_imobil = db.query(TipImobil).order_by(TipImobil.nume_tip).all()
@@ -254,6 +253,7 @@ def _build_listings_base_query(db: Session):
             Anunt.data_publicare,
             Anunt.compartimentare.label("compartimentare_raw"),
             Anunt.id_compartimentare,
+            Anunt.id_tip_imobiliar,
             Anunt.camere,
             IstoricAnunt.status_anunt,
             Judet.nume_judet,
@@ -328,9 +328,10 @@ def _serialize_listing_rows(db: Session, rows, current_user_id: int) -> list[dic
             "perioada_constructie": r.perioada_constructie,
             # daca nu e in lookup folosesc stringul direct de pe anunt
             "compartimentare": r.nume_compartimentare or r.compartimentare_raw,
-            # id-ul de compartimentare il intorc separat ca sa pot prefila
-            # dropdown-ul in modalul de edit (admin)
+            # id-uri pe care le folosesc sa prefilez dropdown-urile din modalul
+            # de edit (admin)
             "id_compartimentare": r.id_compartimentare,
+            "id_tip_imobiliar": r.id_tip_imobiliar,
             "platforma": r.platforma,
             "camere": r.camere,
             "url_anunt": r.URL_anunt,

@@ -104,6 +104,8 @@ def train_models(db: Session) -> dict:
     # 2. scot preturile si suprafetele invalide
     df = df[df["pret"] > 0]
     df = df[df["suprafata"] >= 15]
+    # scot anunturile fara an de constructie (an_constructie e 0 cand lipseste)
+    df = df[df["an_constructie"] != 0]
 
     # 3. localitatile rare (sub 10 anunturi) le bag in "alta"
     # grupez pe tot df-ul sa am aceeasi impartire la toate modelele

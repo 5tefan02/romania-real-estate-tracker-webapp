@@ -17,6 +17,16 @@ def _to_int_or_zero(value):
         return 0
 
 
+def _etaj_to_int(value):
+    # parterul e 0, asa ca etajul lipsa il pun -1
+    if value is None:
+        return -1
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return -1
+
+
 def load_training_data(db: Session) -> pd.DataFrame:
     # iau doar pretul curent din anunturi, nu istoric
     # minim: pret sa nu fie null si suprafata > 0
@@ -57,7 +67,7 @@ def load_training_data(db: Session) -> pd.DataFrame:
                 "pret": r.pret,
                 "suprafata": r.suprafata,
                 # astea sunt string in DB, le fac int sau 0
-                "etaj": _to_int_or_zero(r.etaj),
+                "etaj": _etaj_to_int(r.etaj),
                 "an_constructie": _to_int_or_zero(r.an_constructie),
                 "camere": _to_int_or_zero(r.camere),
                 # pe celelalte le las string, fac get_dummies mai jos

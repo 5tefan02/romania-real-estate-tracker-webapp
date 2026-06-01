@@ -64,6 +64,11 @@ def clean_price(price_text):
 
 
 def fix_price(pret, tip_imobiliar, tip_tranzactie, suprafata):
+    # daca anuntul nu are pret deloc (ex: multe anunturi OLX), nu am ce verifica
+    # returnez None ca la preturile gresite - anuntul o sa fie sarit la validare
+    if pret is None:
+        return None
+
     # la terenuri, daca pretul e foarte mic, probabil e pretul pe mp si nu total
     # in cazul asta se inmulteste cu suprafata ca sa rezulte pretul total
     # daca nu exista suprafata, anuntul nu poate fi salvat
@@ -172,6 +177,29 @@ def an_to_perioada(an_constructie):
     return "dupa 2000"
 
 
+def normalize_perioada(text):
+    # OLX trimite textul direct (ex: "1977 – 1990" cu en-dash, "Dupa 2000" cu majuscula)
+    # storia si imobiliare deja trimit forma canonica prin an_to_perioada
+    # functia asta accepta orice varianta si scoate forma standard
+    if not text:
+        return None
+    # inlocuiesc en-dash/em-dash cu hyphen normal
+    t = text.replace("–", "-").replace("—", "-")
+    # scot spatiile din jurul lui -
+    t = re.sub(r"\s*-\s*", "-", t).strip().lower()
+
+    if "inainte" in t or "ainte" in t:
+        return "inainte de 1977"
+    if "dupa" in t or "dup" in t:
+        return "dupa 2000"
+    if "1977-1990" in t:
+        return "1977-1990"
+    if "1990-2000" in t:
+        return "1990-2000"
+    # daca nu se potriveste nimic returnez None - mai bine null decat varianta dubla
+    return None
+
+
 def clean_compartimentare(text):
     if not text:
         return None
@@ -228,12 +256,18 @@ def clean_listing(raw):
 
     anunt['etaj'] = clean_etaj(anunt.get('etaj'))
 
-    # din an fac perioada
+    # din an fac perioada (storia si imobiliare au an_constructie)
     an = anunt.get('an_constructie')
     if an is not None:
         perioada = an_to_perioada(an)
         if perioada:
             anunt['perioada_constructie'] = perioada
+
+    # daca perioada e deja string (OLX) o normalizez la forma canonica
+    # asa "1977 – 1990" devine "1977-1990", "Dupa 2000" devine "dupa 2000" etc
+    perioada_raw = anunt.get('perioada_constructie')
+    if isinstance(perioada_raw, str):
+        anunt['perioada_constructie'] = normalize_perioada(perioada_raw)
 
     if anunt.get('compartimentare'):
         anunt['compartimentare'] = clean_compartimentare(anunt['compartimentare'])

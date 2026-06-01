@@ -269,7 +269,7 @@ def notify_users():
     total_erori = 0
 
     try:
-        # se iau toti userii cu profil de notificari setat pe activ (cei cu activ=False nu vor sa primeasca mailuri, deci sunt sariti)
+        # se iau toti userii cu profil de notificari setat pe activ (cei cu activ=False nu vor sa primeasca mailuri)
         useri = (
             session.query(AppUser, CriteriiCautare)
             .join(CriteriiCautare, AppUser.id == CriteriiCautare.id_user)
@@ -277,16 +277,10 @@ def notify_users():
             .all()
         )
 
-        if not useri:
-            print("[Notificari] Niciun user cu profil activ.")
-            return
-
         for user, crit in useri:
             matches = _find_matches_for_user(session, user.id, crit)
             if not matches:
                 continue
-
-            print(f"[Notificari] {user.username}: {len(matches)} anunturi noi de trimis.")
 
             for anunt in matches:
                 subject = f"Anunt nou: {anunt.get('tip_imobiliar', 'imobiliar')} in {anunt.get('localitate', '')}"
@@ -294,8 +288,6 @@ def notify_users():
 
                 try:
                     _send_email(user.email, subject, html)
-                    # insert in tabela de notificari trimise abia dupa ce SMTP a confirmat ca a plecat mailul - altfel daca
-                    # trimiterea pica, anuntul ar fi marcat degeaba ca trimis
                     session.add(NotificareTrimisa(
                         id_user=user.id,
                         id_anunt=anunt["id"],
@@ -304,8 +296,6 @@ def notify_users():
                     session.commit()
                     total_trimise += 1
                 except Exception as e:
-                    # daca pica un singur mail, restul trebuie sa mearga in continuare se afiseaza eroarea si se trece la urmatorul anunt
-                    print(f"[Notificari] Eroare la {user.email} pt anunt {anunt['id']}: {e}")
                     session.rollback()
                     total_erori += 1
 

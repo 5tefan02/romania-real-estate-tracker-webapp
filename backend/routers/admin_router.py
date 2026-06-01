@@ -116,6 +116,7 @@ def update_listing(
     anunt.suprafata = payload.suprafata
     anunt.etaj = payload.etaj
     anunt.id_compartimentare = payload.id_compartimentare
+    anunt.id_tip_imobiliar = payload.id_tip_imobiliar
     anunt.camere = payload.camere
 
     db.commit()

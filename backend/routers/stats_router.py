@@ -66,6 +66,26 @@ def _apply_filters(q, county, transaction_type, property_type):
     return q
 
 
+def _active_anunt_ids(db: Session):
+    # subquery cu id-urile anunturilor active
+    # = ultima inregistrare din istoric are status_anunt = 'activ'
+    # se folosesc cu .join(...) pe Anunt.id_anunt pe statisticile de "piata curenta"
+    latest_subq = (
+        db.query(
+            IstoricAnunt.id_anunt.label("id_anunt"),
+            func.max(IstoricAnunt.id_istoric).label("latest_id"),
+        )
+        .group_by(IstoricAnunt.id_anunt)
+        .subquery()
+    )
+    return (
+        db.query(IstoricAnunt.id_anunt.label("id_anunt"))
+        .join(latest_subq, IstoricAnunt.id_istoric == latest_subq.c.latest_id)
+        .filter(IstoricAnunt.status_anunt == "activ")
+        .subquery()
+    )
+
+
 # --- 1. trend pret pe luna ---
 @router.get("/price-trend")
 def price_trend(
@@ -83,7 +103,13 @@ def price_trend(
     week_col = func.to_char(IstoricAnunt.data_inceput, 'IYYY-"W"IW').label("week")
 
     q = (
-        db.query(week_col, func.avg(IstoricAnunt.pret).label("avg_price"))
+        db.query(
+            week_col,
+            # folosesc mediana in loc de medie ca sa nu fie influentata de outlieri
+            # (ex: o chirie de 15000 EUR/luna intr-o saptamana cu 5 anunturi normale
+            # ar duce media la cateva mii; mediana ramane in zona reala)
+            func.percentile_cont(0.5).within_group(IstoricAnunt.pret.asc()).label("avg_price"),
+        )
         .join(Anunt, Anunt.id_anunt == IstoricAnunt.id_anunt)
         .join(Localitate, Localitate.id_localitate == Anunt.id_localitate)
         .join(Judet, Judet.id_judet == Localitate.id_judet)
@@ -98,14 +124,14 @@ def price_trend(
 
     rows = q.group_by(week_col).order_by(week_col).all()
     return [
-        {"week": r.week, "average_price": round(float(r.avg_price))}
+        {"week": r.week, "pret mediu": round(float(r.avg_price))}
         for r in rows
         if r.avg_price is not None
     ]
 
 
 # cate bucket-uri fac pe axa X
-NUM_BUCKETS = 15
+NUM_BUCKETS = 25
 
 
 def _format_price_label(n):
@@ -130,9 +156,13 @@ def price_distribution(
 ):
     _validate_filters(db, county, transaction_type, property_type)
 
+    # doar anunturi active (snapshot al pietei curente)
+    active_subq = _active_anunt_ids(db)
+
     # intai iau min si max ca sa fac bucket-urile pe intervalul real
     base = (
         db.query(Anunt)
+        .join(active_subq, active_subq.c.id_anunt == Anunt.id_anunt)
         .join(Localitate, Localitate.id_localitate == Anunt.id_localitate)
         .join(Judet, Judet.id_judet == Localitate.id_judet)
         .outerjoin(TipImobil, TipImobil.id_tip_imobiliar == Anunt.id_tip_imobiliar)
@@ -146,12 +176,13 @@ def price_distribution(
     )
     base = _apply_filters(base, county, transaction_type, property_type)
 
-    # folosesc percentila 5 si 95 in loc de min/max ca sa nu strice scara
-    # outlierii (ex: un anunt la 10M EUR) ar fi facut ca toate celelalte sa cada
-    # intr-un singur bucket, lasand histograma aproape goala
+    # percentila 5 jos si 99 sus
+    # pe partea de jos taiem doar 5% (preturi prea mici, probabil teren ieftin)
+    # pe partea de sus taiem doar 1% (extremele de tip 5M+ care strica scara)
+    # asa avem o plaja vizibila cat mai larga fara sa ne strice un outlier extrem
     mn_pct, mx_pct = base.with_entities(
         func.percentile_cont(0.05).within_group(Anunt.pret.asc()),
-        func.percentile_cont(0.95).within_group(Anunt.pret.asc()),
+        func.percentile_cont(0.99).within_group(Anunt.pret.asc()),
     ).one()
 
     if mn_pct is None or mx_pct is None:
@@ -175,6 +206,9 @@ def price_distribution(
     rows = q.all()
     counts = {int(r.b): r.count for r in rows}
 
+    # NU mai absorb outlierii in bucket-urile de capat (sub p5 si peste p99)
+    # altfel ultimul bucket apare disproportionat de mare
+    # anunturile din extreme nu apar deloc pe grafic (~6% din total - acceptabil)
     step = (mx - mn) / NUM_BUCKETS
     result = []
     for i in range(1, NUM_BUCKETS + 1):
@@ -182,12 +216,6 @@ def price_distribution(
         hi = mn + step * i
         label = f"{_format_price_label(lo)}-{_format_price_label(hi)}"
         count = counts.get(i, 0)
-        # outlierii jos ii adaug in primul bucket
-        if i == 1:
-            count += counts.get(0, 0)
-        # outlierii sus ii adaug in ultimul bucket
-        if i == NUM_BUCKETS:
-            count += counts.get(NUM_BUCKETS + 1, 0)
         result.append({"range": label, "count": count})
 
     return result
@@ -241,9 +269,13 @@ def price_per_sqm(
     pps = (func.sum(Anunt.pret) * 1.0 / func.sum(Anunt.suprafata)).label("pps")
     cnt = func.count().label("cnt")
 
+    # doar anunturi active (snapshot al pietei curente)
+    active_subq = _active_anunt_ids(db)
+
     q = (
         db.query(Localitate.nume_localitate.label("city"), pps, cnt)
         .join(Anunt, Anunt.id_localitate == Localitate.id_localitate)
+        .join(active_subq, active_subq.c.id_anunt == Anunt.id_anunt)
         .join(Judet, Judet.id_judet == Localitate.id_judet)
         .outerjoin(TipImobil, TipImobil.id_tip_imobiliar == Anunt.id_tip_imobiliar)
         .outerjoin(
@@ -329,8 +361,11 @@ def rooms_distribution(
     # grupez pe nr de camere, ignor anunturile fara info despre asta
     # pun "5+" la toate care au 5 sau mai multe ca sa nu fie 10-15 categorii separate
     # bucketing-ul il fac in Python (mai usor decat case in SQL)
+    # doar anunturi active (snapshot al pietei curente)
+    active_subq = _active_anunt_ids(db)
     q = (
         db.query(Anunt.camere.label("camere"), func.count().label("cnt"))
+        .join(active_subq, active_subq.c.id_anunt == Anunt.id_anunt)
         .join(Localitate, Localitate.id_localitate == Anunt.id_localitate)
         .join(Judet, Judet.id_judet == Localitate.id_judet)
         .outerjoin(TipImobil, TipImobil.id_tip_imobiliar == Anunt.id_tip_imobiliar)
@@ -368,12 +403,15 @@ def period_distribution(
 ):
     _validate_filters(db, county, transaction_type, property_type)
 
+    # doar anunturi active (snapshot al pietei curente)
+    active_subq = _active_anunt_ids(db)
     q = (
         db.query(
             PerioadaAnConstructie.perioada_constructie.label("period"),
             func.count().label("cnt"),
         )
         .join(Anunt, Anunt.id_perioada_constructie == PerioadaAnConstructie.id_an_constructie)
+        .join(active_subq, active_subq.c.id_anunt == Anunt.id_anunt)
         .join(Localitate, Localitate.id_localitate == Anunt.id_localitate)
         .join(Judet, Judet.id_judet == Localitate.id_judet)
         .outerjoin(TipImobil, TipImobil.id_tip_imobiliar == Anunt.id_tip_imobiliar)
@@ -399,12 +437,15 @@ def compartment_distribution(
 ):
     _validate_filters(db, county, transaction_type, property_type)
 
+    # doar anunturi active (snapshot al pietei curente)
+    active_subq = _active_anunt_ids(db)
     q = (
         db.query(
             Compartimentare.nume_compartimentare.label("compartment"),
             func.count().label("cnt"),
         )
         .join(Anunt, Anunt.id_compartimentare == Compartimentare.id_compartimentare)
+        .join(active_subq, active_subq.c.id_anunt == Anunt.id_anunt)
         .join(Localitate, Localitate.id_localitate == Anunt.id_localitate)
         .join(Judet, Judet.id_judet == Localitate.id_judet)
         .outerjoin(TipImobil, TipImobil.id_tip_imobiliar == Anunt.id_tip_imobiliar)
@@ -487,8 +528,11 @@ def surface_distribution(
     _validate_filters(db, county, transaction_type, property_type)
 
     # iau toate suprafetele care trec filtrele, bucketing-ul il fac in Python (e mai clar)
+    # doar anunturi active (snapshot al pietei curente)
+    active_subq = _active_anunt_ids(db)
     q = (
         db.query(Anunt.suprafata)
+        .join(active_subq, active_subq.c.id_anunt == Anunt.id_anunt)
         .join(Localitate, Localitate.id_localitate == Anunt.id_localitate)
         .join(Judet, Judet.id_judet == Localitate.id_judet)
         .outerjoin(TipImobil, TipImobil.id_tip_imobiliar == Anunt.id_tip_imobiliar)
@@ -585,6 +629,12 @@ def price_changes(
 
     all_changes = changes_q.all()
 
+    # modificarile reale de pret la imobiliare nu trec de cateva zeci de procente
+    # peste +/- 200% e aproape sigur eroare de scraping
+    # (ex: scraper-ul a luat la inceput pretul/mp si apoi pretul total al unui teren)
+    # daca nu filtrez, un singur outlier strica media
+    MAX_REASONABLE_PCT = 200
+
     scaderi = 0
     cresteri = 0
     suma_scadere_pct = 0.0
@@ -592,11 +642,16 @@ def price_changes(
     anunturi_cu_modificari_set = set()
 
     for ch in all_changes:
-        anunturi_cu_modificari_set.add(ch.id_anunt)
         if ch.old_price <= 0:
             # protectie la impartire (n-ar trebui sa apara, pretul e > 0 in toate scenariile reale)
             continue
         diff_pct = (ch.new_price - ch.old_price) * 100.0 / ch.old_price
+
+        # ignor modificarile extreme (erori de date)
+        if abs(diff_pct) > MAX_REASONABLE_PCT:
+            continue
+
+        anunturi_cu_modificari_set.add(ch.id_anunt)
         if diff_pct < 0:
             scaderi += 1
             suma_scadere_pct += diff_pct
@@ -667,10 +722,14 @@ def top_bottom_counties(
 
     avg_price = func.avg(Anunt.pret).label("avg_price")
 
+    # doar anunturi active (snapshot al pietei curente)
+    active_subq = _active_anunt_ids(db)
+
     base = (
         db.query(Judet.nume_judet.label("county"), avg_price)
         .join(Localitate, Localitate.id_judet == Judet.id_judet)
         .join(Anunt, Anunt.id_localitate == Localitate.id_localitate)
+        .join(active_subq, active_subq.c.id_anunt == Anunt.id_anunt)
         .outerjoin(TipImobil, TipImobil.id_tip_imobiliar == Anunt.id_tip_imobiliar)
         .outerjoin(
             TipTranzactie,
@@ -709,8 +768,12 @@ def surface_vs_price(
 ):
     _validate_filters(db, county, transaction_type, property_type)
 
-    q = (
+    # doar anunturi active (snapshot al pietei curente)
+    active_subq = _active_anunt_ids(db)
+
+    base = (
         db.query(Anunt.suprafata, Anunt.pret)
+        .join(active_subq, active_subq.c.id_anunt == Anunt.id_anunt)
         .join(Localitate, Localitate.id_localitate == Anunt.id_localitate)
         .join(Judet, Judet.id_judet == Localitate.id_judet)
         .outerjoin(TipImobil, TipImobil.id_tip_imobiliar == Anunt.id_tip_imobiliar)
@@ -724,10 +787,19 @@ def surface_vs_price(
         .filter(Anunt.pret > 0)
         .filter(Anunt.pret <= MAX_SANE_PRICE)
     )
-    q = _apply_filters(q, county, transaction_type, property_type)
+    base = _apply_filters(base, county, transaction_type, property_type)
+
+    # scot outlierii de pe suprafata (percentila 99) ca sa nu strice scara
+    # ex: un apartament cu 6000mp e clar eroare de scraping, il ignor
+    p99 = base.with_entities(
+        func.percentile_cont(0.99).within_group(Anunt.suprafata.asc())
+    ).scalar()
+
+    if p99 is not None:
+        base = base.filter(Anunt.suprafata <= p99)
 
     # random() ca sa iau un esantion reprezentativ, nu doar primele
-    rows = q.order_by(func.random()).limit(SCATTER_MAX_POINTS).all()
+    rows = base.order_by(func.random()).limit(SCATTER_MAX_POINTS).all()
     return [{"surface": r.suprafata, "price": r.pret} for r in rows]
 
 
