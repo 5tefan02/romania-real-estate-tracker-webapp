@@ -12,7 +12,12 @@ def scrape_olx():
     rezultate = []
     links = []
 
-    driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()))
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
+
+    driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()), options=options)
     driver.get('https://www.olx.ro/imobiliare/?currency=EUR&search%5Border%5D=created_at:desc')
     time.sleep(3)
 

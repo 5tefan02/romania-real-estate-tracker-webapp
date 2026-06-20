@@ -96,15 +96,12 @@ def _train_single_model(df_subset: pd.DataFrame) -> tuple:
 
 
 def train_models(db: Session) -> dict:
-    # antrenez cele 3 modele, le salvez si intorc metricele
-
     # 1. iau datele (contine si vanzari si inchirieri)
     df = load_training_data(db)
 
-    # 2. scot preturile si suprafetele invalide
+    # 2. scot preturile, suprafetele invalide si anuturile fara an
     df = df[df["pret"] > 0]
     df = df[df["suprafata"] >= 15]
-    # scot anunturile fara an de constructie (an_constructie e 0 cand lipseste)
     df = df[df["an_constructie"] != 0]
 
     # 3. localitatile rare (sub 10 anunturi) le bag in "alta"
@@ -113,20 +110,17 @@ def train_models(db: Session) -> dict:
     locality_counts = df["locality"].value_counts()
     rare_localities = locality_counts[locality_counts < LOCALITY_MIN_COUNT].index
     df.loc[df["locality"].isin(rare_localities), "locality"] = "alta"
-    print(f"[ML] Localitati pastrate: {df['locality'].nunique()} (din {len(locality_counts)})")
 
     # 4. antrenez cate un model pt fiecare combinatie
     results = {}
     os.makedirs(MODELS_DIR, exist_ok=True)
 
     for cfg in MODEL_CONFIGS:
-        # iau doar randurile pt combinatia asta
         df_subset = df[
             (df["property_type"] == cfg["property_type"])
             & (df["transaction_type"] == cfg["transaction_type"])
         ].copy()
 
-        # scot outlierii pe pret/mp
         df_subset["_pret_per_mp"] = df_subset["pret"] / df_subset["suprafata"]
         df_subset = df_subset[
             df_subset["_pret_per_mp"].between(cfg["pret_per_mp_min"], cfg["pret_per_mp_max"])
@@ -138,7 +132,6 @@ def train_models(db: Session) -> dict:
                 f"Nu sunt destule date pt {cfg['key']} ({len(df_subset)} randuri)"
             )
 
-        print(f"[ML] Antrenez {cfg['key']} pe {len(df_subset)} randuri...")
         model, cols, mae, r2, rows = _train_single_model(df_subset)
 
         joblib.dump(model, cfg["model_path"])
@@ -150,14 +143,12 @@ def train_models(db: Session) -> dict:
             "r2": round(float(r2), 3),
         }
 
-    # 5. salvez harta cu localitati pe judete (o folosesc pt dropdown)
     localities_by_county = {
         county: sorted(group["locality"].unique().tolist())
         for county, group in df.groupby("county")
     }
     joblib.dump(localities_by_county, LOCALITIES_PATH)
 
-    # 6. salvez metricele (le citeste /model-info si le afiseaza frontendul)
     joblib.dump(results, METRICS_PATH)
 
     return results

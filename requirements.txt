@@ -7,7 +7,7 @@ python-dotenv
 fastapi
 uvicorn[standard]
 python-jose[cryptography]
-passlib[bcrypt]
+bcrypt
 pydantic
 
 # ETL (Scraping)
