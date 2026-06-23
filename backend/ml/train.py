@@ -1,6 +1,3 @@
-# antrenez 3 modele Random Forest:
-# (Apartament vanzare), (Casa vanzare), (Apartament inchiriere)
-# se cheama din /api/ml/retrain
 
 import os
 
@@ -46,10 +43,12 @@ MODEL_CONFIGS = [
         "key": "casa_vanzare",
         "property_type": "Casa",
         "transaction_type": "vanzare",
-        "pret_per_mp_min": 200,
+        "pret_per_mp_min": 50,
         "pret_per_mp_max": 8000,
+        "suprafata_max": 500,
         "model_path": RF_CASA_VANZARE_PATH,
         "cols_path": COLS_CASA_VANZARE_PATH,
+        "drop_columns": ["etaj", "compartimentare"],
     },
     {
         "key": "apartament_inchiriere",
@@ -64,7 +63,7 @@ MODEL_CONFIGS = [
 ]
 
 
-def _train_single_model(df_subset: pd.DataFrame) -> tuple:
+def _train_single_model(df_subset: pd.DataFrame, n_estimators=200, min_samples_leaf=1) -> tuple:
     # antrenez un singur RandomForest pe un subset
     # intorc (model, coloane, mae, r2, cate randuri)
 
@@ -82,7 +81,7 @@ def _train_single_model(df_subset: pd.DataFrame) -> tuple:
 
     # antrenez pe log(pret) ca sa nu fie dominat de preturile mari
     model = TransformedTargetRegressor(
-        regressor=RandomForestRegressor(n_estimators=100, random_state=42),
+        regressor=RandomForestRegressor(n_estimators=n_estimators, min_samples_leaf=min_samples_leaf, random_state=42),
         func=np.log,
         inverse_func=np.exp,
     )
@@ -99,10 +98,15 @@ def train_models(db: Session) -> dict:
     # 1. iau datele (contine si vanzari si inchirieri)
     df = load_training_data(db)
 
-    # 2. scot preturile, suprafetele invalide si anuturile fara an
+    # 2. scot preturile si suprafetele invalide
     df = df[df["pret"] > 0]
     df = df[df["suprafata"] >= 15]
-    df = df[df["an_constructie"] != 0]
+
+    mean_an = int(df[df["an_constructie"] != 0]["an_constructie"].mean())
+    df.loc[df["an_constructie"] == 0, "an_constructie"] = mean_an
+
+    mean_etaj = int(df[df["etaj"] != -1]["etaj"].mean())
+    df.loc[df["etaj"] == -1, "etaj"] = mean_etaj
 
     # 3. localitatile rare (sub 10 anunturi) le bag in "alta"
     # grupez pe tot df-ul sa am aceeasi impartire la toate modelele
@@ -127,12 +131,23 @@ def train_models(db: Session) -> dict:
         ]
         df_subset = df_subset.drop(columns=["_pret_per_mp"])
 
+        if "suprafata_max" in cfg:
+            df_subset = df_subset[df_subset["suprafata"] <= cfg["suprafata_max"]]
+
+        for col in cfg.get("drop_columns", []):
+            if col in df_subset.columns:
+                df_subset = df_subset.drop(columns=[col])
+
         if len(df_subset) < 10:
             raise ValueError(
                 f"Nu sunt destule date pt {cfg['key']} ({len(df_subset)} randuri)"
             )
 
-        model, cols, mae, r2, rows = _train_single_model(df_subset)
+        model, cols, mae, r2, rows = _train_single_model(
+            df_subset,
+            n_estimators=cfg.get("n_estimators", 100),
+            min_samples_leaf=cfg.get("min_samples_leaf", 1),
+        )
 
         joblib.dump(model, cfg["model_path"])
         joblib.dump(cols, cfg["cols_path"])

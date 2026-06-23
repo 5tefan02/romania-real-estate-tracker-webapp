@@ -3,7 +3,7 @@
 import os
 from datetime import datetime, timedelta, timezone
 
-import bcrypt
+from passlib.context import CryptContext
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, Request, status
 from jose import jwt, JWTError
@@ -20,19 +20,14 @@ JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
 
 COOKIE_NAME = "access_token"
 
-# parolele sunt hash-uite cu bcrypt
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    parola_bytes = plain_password.encode("utf-8")
-    hash_bytes = hashed_password.encode("utf-8")
-    return bcrypt.checkpw(parola_bytes, hash_bytes)
+    return pwd_context.verify(plain_password, hashed_password)
 
 
 def hash_password(plain_password: str) -> str:
-    # folosit la inregistrare ca sa nu salvez parola in clar
-    parola_bytes = plain_password.encode("utf-8")
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(parola_bytes, salt)
-    return hashed.decode("utf-8")
+    return pwd_context.hash(plain_password)
 
 
 def create_access_token(user_id: int) -> str:

@@ -26,7 +26,6 @@ Base = declarative_base()
 
 
 def get_db():
-    # deschid o sesiune pt fiecare request si o inchid la sfarsit
     db = SessionLocal()
     try:
         yield db

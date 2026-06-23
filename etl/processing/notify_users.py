@@ -30,12 +30,6 @@ from db.models import (
 # .env-ul e in radacina proiectului (2 foldere mai sus de fisierul asta)
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
-# Configurari Gmail SMTP
-# GMAIL_USER       -> adresa contului Gmail dedicat (ex: evesta.notificari@gmail.com)
-# GMAIL_APP_PASSWORD -> "App Password" generata din contul Google (NU parola normala)
-#                     -> se genereaza la: https://myaccount.google.com/apppasswords
-#                     -> necesita 2FA activat pe cont
-# GMAIL_FROM_EMAIL -> ce apare in casuta destinatarului (ex: "Evesta <evesta.notificari@gmail.com>")
 GMAIL_USER = os.getenv("GMAIL_USER", "")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 GMAIL_FROM_EMAIL = os.getenv("GMAIL_FROM_EMAIL", GMAIL_USER)
@@ -45,8 +39,6 @@ SMTP_PORT = 587  # port pentru STARTTLS
 
 
 def _format_price(pret):
-    # transforma 150000 in "150.000" - cu punct la mii, cum se scrie la noi
-    # (default-ul lui python pune virgula ca in engleza, deci se inlocuieste)
     if pret is None:
         return "-"
     return f"{int(pret):,}".replace(",", ".")
@@ -57,10 +49,6 @@ def _format_field(value):
 
 
 def _render_email_html(anunt):
-    # HTML-ul mailului e construit direct in cod (cu f-string)
-    # CSS-ul e inline pe fiecare element pentru ca asa cer clientii de mail
-    # (Gmail/Outlook nu citesc <style> sau fisiere externe)
-    # daca anuntul nu are imagine, blocul e gol
     if anunt.get("imagine_url"):
         image_block = (
             f'<img src="{anunt["imagine_url"]}" alt="" '

@@ -191,13 +191,9 @@ export default function Statistics() {
                 className={inputClass}
                 value={filters.property_type}
                 onChange={(e) => handleFilterChange("property_type", e.target.value)}
-                disabled={!options}
               >
-                {options?.property_types.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
+                <option value="Apartament">Apartament</option>
+                <option value="Casa">Casa</option>
               </select>
             </div>
           </div>
